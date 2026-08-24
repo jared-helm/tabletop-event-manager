@@ -12,6 +12,8 @@ Note: A trailing `*` marks requirements added after the original take-home promp
 - NFR-1.4: Local development startup should require no more than one or two commands, with `docker compose up` as the primary path. *
 - NFR-1.5: The datastore must be SQLite. *
 - NFR-1.6: The datastore choice must not require a hosted cloud dependency for local development.
+- NFR-1.7: All database timestamps must be stored in UTC and use field names ending in `_utc`. *
+- NFR-1.8: The browser must render stored UTC timestamps in the user's local time zone. *
 
 ## 2. Security & Access
 
@@ -22,12 +24,15 @@ Note: A trailing `*` marks requirements added after the original take-home promp
 
 - NFR-3.1: The system's capacity check for the "last seat" must remain correct under concurrent registration attempts (implied by the design write-up question: "what happens under concurrent registrations for the last seat?").
 - NFR-3.2: Duplicate-registration cases must be handled sensibly (per evaluation criteria on correctness).
+- NFR-3.3: Registration writes must be serialized per event; each write waits for the previous write to finish before checking registration cutoff, duplicates, and capacity, then saving. *
+- NFR-3.4: Duplicate matching must be case-insensitive and trim surrounding whitespace before comparing names or player tags. *
 
 ## 4. Extensibility / Maintainability
 
 - NFR-4.1: The template system must be designed so that a 4th game type could be added without modifying core event logic.
 - NFR-4.2: Template design should reflect genuine extensibility rather than conditional branching (if/else) on game names (per evaluation criteria).
 - NFR-4.3: Game-type behavior must be template-driven and must not rely on hard-coded game-type strings in core logic.
+- NFR-4.4: The initial game templates and configuration values must be seeded for Magic: The Gathering, Pokemon TCG, and Yu-Gi-Oh TCG. Template creation and editing are out of scope for v1. *
 
 ## 5. Implementation Quality
 

@@ -9,6 +9,7 @@ Note: A trailing `*` marks requirements added after the original take-home promp
 - FR-1.1: An organizer must be able to create an event.
 - FR-1.2: Each event must record, at minimum: a name, a game type, a date and start time, and a player capacity.
 - FR-1.3: The player capacity field must support values up to 30 players.
+- FR-1.4: Event start time and duration must be stored on the event so the end time can be calculated without relying on later template changes. *
 
 ## 2. Game Types & Templates
 
@@ -27,7 +28,7 @@ Note: A trailing `*` marks requirements added after the original take-home promp
 
 - FR-3.1: Scheduled events must be displayed on a calendar.
 - FR-3.2: An organizer must be able to see what events are happening on a given day.
-- FR-3.3: Either a month grid view or a grouped-by-day agenda list satisfies this requirement.
+- FR-3.3: The calendar must provide a month grid view. Each day cell must show all events scheduled for that day.
 
 ## 4. Calendar Invite (.ics Export)
 
@@ -40,9 +41,11 @@ Note: A trailing `*` marks requirements added after the original take-home promp
 - FR-5.1: Each event must have a registration link.
 - FR-5.2: The event page must display a QR code that encodes the event's registration link.
 - FR-5.3: Scanning the QR code must take the player to a registration form.
-- FR-5.4: The registration form requires at minimum a player name.
+- FR-5.4: The registration form requires a first name and last name as separate fields and may collect an optional player tag. *
 - FR-5.5: Registration must be capacity-enforced: once an event is full, further registration attempts must be rejected with a clear message.
 - FR-5.6: Waitlist behavior is not required for v1. *
+- FR-5.7: Registration must close at the event start time, enforced by the server. *
+- FR-5.8: Duplicate registrations must be rejected when the case-insensitive, trimmed first and last names match an existing registration together, or when a non-empty case-insensitive, trimmed player tag matches. *
 
 ## 6. Explicitly Out of Scope
 
@@ -59,3 +62,7 @@ Additionally:
 - Players remain anonymous until they submit the registration form.
 - Age-division handling is not required for v1. *
 - Tournament management is not required for v1 (no pairings, standings, round progression, bracket execution, or match result reporting). *
+- Template creation and editing are not required for v1; the three supported game templates and their option values are seeded. *
+- Editing event properties after creation is not required for v1. *
+- All database timestamps must be stored in UTC and rendered in the browser using the user's local time zone. *
+- Registration duplicate matching must be case-insensitive after trimming surrounding whitespace. *
