@@ -1,0 +1,217 @@
+# Build Tasks
+
+This checklist turns [the software design](software-design.md) into an implementation sequence. Tasks should be completed in order unless a task is explicitly marked as parallelizable.
+
+## Delivery Rules
+
+- Build the API, frontend, and Docker Compose boilerplate first.
+- Set up the SQLite schema and seeded game templates before implementing event flows.
+- Build the product page by page, starting with the calendar.
+- Do not seed sample events. The database starts with game templates only; events are created through the UI/API.
+- Keep tournament execution, template management, event editing, authentication, and other documented v1 cuts out of the implementation.
+
+## Phase 1: Project Foundation
+
+### API Boilerplate
+
+- [ ] Create the C# API project and solution structure.
+- [ ] Add configuration for SQLite and the database connection.
+- [ ] Add health-check or root endpoint for local verification.
+- [ ] Configure JSON serialization for ISO 8601 UTC timestamps.
+- [ ] Configure CORS for the React development origin.
+- [ ] Add API-level error handling and consistent validation-error responses.
+- [ ] Add a basic test project and one smoke test.
+
+**Acceptance:** The API builds, starts locally, responds to a health request, and has no dependency on a hosted service.
+
+### Frontend Boilerplate
+
+- [ ] Create the React application and source structure.
+- [ ] Add client-side routing for the calendar and registration page.
+- [ ] Add an API client with a configurable API base URL.
+- [ ] Add shared loading, error, modal, tab, and form primitives.
+- [ ] Add date/time helpers that convert API UTC timestamps to browser-local display values.
+- [ ] Add a basic frontend test setup and one render smoke test.
+
+**Acceptance:** The frontend builds, starts, can call the API, and renders a placeholder calendar route.
+
+### Docker Compose
+
+- [ ] Add `docker-compose.yml` for the API, frontend, and persistent SQLite storage.
+- [ ] Add Dockerfiles or equivalent build configuration for the API and frontend.
+- [ ] Configure service-to-service API URL wiring.
+- [ ] Configure a persistent database volume.
+- [ ] Add health checks or startup ordering where needed.
+- [ ] Verify the primary local startup path is `docker compose up`.
+
+**Acceptance:** A clean checkout can start the stack with one primary command and reach both frontend and API endpoints.
+
+## Phase 2: SQLite Schema and Seed Data
+
+### Schema
+
+- [ ] Create the SQLite schema for `GAME`.
+- [ ] Create the SQLite schema for `EVENT`.
+- [ ] Create the SQLite schema for `GAME_CONFIGURATION_OPTION`.
+- [ ] Create the SQLite schema for `GAME_CONFIGURATION_OPTION_VALUE`.
+- [ ] Create the SQLite schema for `EVENT_CONFIGURATION_SELECTION`.
+- [ ] Create the SQLite schema for `EVENT_REGISTRATION`.
+- [ ] Use `_utc` suffixes for all persisted timestamp fields.
+- [ ] Add foreign keys and required-field constraints.
+- [ ] Add uniqueness for game codes and `(game_id, key)` options.
+- [ ] Add uniqueness for `(option_id, value)` values.
+- [ ] Add uniqueness for `(event_id, option_id, selected_value)` selections.
+- [ ] Add `deleted_at_utc` as nullable soft-delete state.
+- [ ] Add indexes for active calendar events, event registrations, and registration duplicate lookups.
+- [ ] Add migration or initialization behavior that creates the schema on startup.
+
+**Acceptance:** A fresh SQLite database can be initialized without manual table creation, and the schema matches [the ER diagram](er-diagram.md).
+
+### Seed Templates
+
+- [ ] Run the existing `scripts/seed-game-templates.sql` as part of database initialization.
+- [ ] Verify seeded games: MTG, Pokemon TCG, and Yu-Gi-Oh TCG.
+- [ ] Verify seeded play types, formats, tournament formats, durations, and player constraints.
+- [ ] Make seeding repeatable without duplicate rows.
+- [ ] Confirm no event rows are inserted by the seed process.
+
+**Acceptance:** A fresh database has the three game templates and no events or registrations.
+
+## Phase 3: Calendar Page
+
+### Calendar API
+
+- [ ] Implement `GET /api/events?month=YYYY-MM`.
+- [ ] Return only non-deleted events within the requested month.
+- [ ] Return UTC start time, duration, calculated end time, name, game, capacity, and registration count.
+- [ ] Validate the month query format and define the server's month-boundary behavior.
+
+### Calendar UI
+
+- [ ] Implement the month-grid calendar as the main route.
+- [ ] Add previous-month, next-month, and Today controls.
+- [ ] Render every event in its matching local calendar day cell.
+- [ ] Show event name and local start time in each event summary.
+- [ ] Support dense day cells without hiding events behind a `+N more` control.
+- [ ] Add the Create Event button above the calendar on the top-right.
+- [ ] Refresh the calendar after event creation and soft deletion.
+- [ ] Add loading, empty, and API-error states.
+
+**Acceptance:** A month view loads from the API, shows all returned events on the correct browser-local dates, and has no pre-seeded events.
+
+## Phase 4: Event Creation
+
+### Template API
+
+- [ ] Implement `GET /api/games` for active seeded games.
+- [ ] Implement `GET /api/games/{gameId}/configuration`.
+- [ ] Return active options, values, controls, defaults, ordering, and required flags.
+- [ ] Keep template behavior data-driven rather than branching on game names.
+
+### Create Modal and API
+
+- [ ] Implement the create-event modal with outside-click and X-button close behavior.
+- [ ] Add accessible focus handling and keyboard behavior.
+- [ ] Render event fields and dynamic template controls.
+- [ ] Support `SELECT` and `CHECKBOX_GROUP` controls.
+- [ ] Show tournament format only for Tournament play type.
+- [ ] Convert browser-local date/time input to UTC before submission.
+- [ ] Add client-side validation for required fields, text constraints, dates, and capacity.
+- [ ] Implement `POST /api/events` with authoritative server-side validation.
+- [ ] Snapshot selected configuration and template duration onto the event.
+- [ ] Generate a unique registration slug.
+- [ ] Calculate and return the event end time.
+- [ ] Close the modal and refresh the calendar after success.
+- [ ] Preserve form values and display errors after failure.
+
+**Acceptance:** An organizer can create an event for each seeded game, and the new event appears in the correct local calendar day without a full page reload.
+
+## Phase 5: Event Details and Deletion
+
+### Event Details Modal
+
+- [ ] Implement `GET /api/events/{eventId}`.
+- [ ] Open the event modal by clicking a calendar event.
+- [ ] Add Event Details, Players, and Registration Resources tabs.
+- [ ] Keep all event properties read-only after creation.
+- [ ] Display calculated local start and end times.
+- [ ] Add accessible tab and modal keyboard behavior.
+
+### Soft Deletion
+
+- [ ] Implement `DELETE /api/events/{eventId}` as a soft delete.
+- [ ] Require a confirmation step in the UI.
+- [ ] Allow deletion even when registrations exist.
+- [ ] Set `deleted_at_utc` and retain registrations/configuration selections.
+- [ ] Remove the event from active calendar results after deletion.
+- [ ] Return an unavailable-event response for deleted registration pages/resources.
+- [ ] Leave the data model compatible with future undeletion.
+
+**Acceptance:** Deleting an event removes it from active views but preserves its database row and registrations.
+
+## Phase 6: Registration Resources
+
+- [ ] Implement `GET /api/events/{eventId}/registration-resources`.
+- [ ] Display the clickable registration URL.
+- [ ] Add a copy-to-clipboard action and feedback state.
+- [ ] Generate a QR code with a maintained library.
+- [ ] Ensure the QR code encodes the exact registration URL.
+- [ ] Generate a downloadable ICS file with a maintained library.
+- [ ] Use event start plus stored duration for the ICS end time.
+- [ ] Include title, localizable start/end time, and location in the ICS file.
+- [ ] Handle deleted or unknown events with an unavailable state.
+
+**Acceptance:** The Registration Resources tab provides a working link, copy action, QR code, and importable ICS download for an active event.
+
+## Phase 7: Players Tab and Registration
+
+### Players Tab API and UI
+
+- [ ] Implement `GET /api/events/{eventId}/registrations`.
+- [ ] Return total count and player rows.
+- [ ] Display total player count above the table.
+- [ ] Display first name, last name, and optional player tag only.
+- [ ] Add loading and empty states.
+- [ ] Refresh the tab when the modal opens and after registration completes.
+
+### Public Registration Page
+
+- [ ] Implement `GET /api/registration/{slug}`.
+- [ ] Implement `POST /api/registration/{slug}`.
+- [ ] Add the registration route reachable from the slug.
+- [ ] Display event name, game, local start/end time, and location.
+- [ ] Collect required first name and last name separately.
+- [ ] Collect optional player tag.
+- [ ] Add client-side input validation and recoverable error handling.
+- [ ] Show a success state only after the API confirms persistence.
+- [ ] Show clear errors for full, started, deleted, unknown, invalid, and unavailable events.
+
+### Registration Correctness
+
+- [ ] Normalize names and player tags by trimming surrounding whitespace.
+- [ ] Compare duplicate values case-insensitively.
+- [ ] Treat blank player tags as absent.
+- [ ] Reject matching normalized first/last name pairs.
+- [ ] Reject matching non-empty normalized player tags.
+- [ ] Return `Someone with that registration info has already registered.` for duplicates.
+- [ ] Reject registrations at or after `start_at_utc`.
+- [ ] Add a per-event lock around cutoff, duplicate, capacity, and insert operations.
+- [ ] Count registrations and enforce capacity while the lock is held.
+- [ ] Commit the registration before releasing the lock.
+- [ ] Verify capacity-one behavior with concurrent requests.
+
+**Acceptance:** A player can register once for an active event, receives a success response, appears in the Players tab, and cannot bypass cutoff, duplicate, or capacity rules.
+
+## Phase 8: Hardening and Documentation
+
+- [ ] Add API tests for template loading, event creation, UTC conversion, soft deletion, and validation.
+- [ ] Add registration tests for cutoff, duplicates, capacity, and concurrent last-seat requests.
+- [ ] Add frontend tests for calendar placement, modal behavior, dynamic controls, and registration states.
+- [ ] Verify QR content and ICS fields against an active event.
+- [ ] Verify browser-local rendering in at least two time zones or with mocked time-zone settings.
+- [ ] Add README setup instructions centered on `docker compose up`.
+- [ ] Add the required design write-up and AI usage note to `README.md`.
+- [ ] Document deliberate cuts and any known limitations honestly.
+- [ ] Run the full build and test suite from a clean database.
+
+**Acceptance:** The complete create -> calendar -> share -> register flow works locally, and the README accurately describes setup, design decisions, scope cuts, and verification.
