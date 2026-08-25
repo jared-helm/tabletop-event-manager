@@ -180,24 +180,24 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Registration Correctness
 
-- [ ] Normalize names and player tags by trimming surrounding whitespace.
-- [ ] Compare duplicate values case-insensitively.
-- [ ] Treat blank player tags as absent.
-- [ ] Reject matching normalized first/last name pairs.
-- [ ] Reject matching non-empty normalized player tags.
-- [ ] Return `Someone with that registration info has already registered.` for duplicates.
-- [ ] Reject registrations at or after `start_at_utc`.
-- [ ] Add a per-event lock around cutoff, duplicate, capacity, and insert operations.
-- [ ] Count registrations and enforce capacity while the lock is held.
-- [ ] Commit the registration before releasing the lock.
-- [ ] Verify capacity-one behavior with concurrent requests.
+- [x] Normalize names and player tags by trimming surrounding whitespace.
+- [x] Compare duplicate values case-insensitively.
+- [x] Treat blank player tags as absent.
+- [x] Reject matching normalized first/last name pairs.
+- [x] Reject matching non-empty normalized player tags.
+- [x] Return `Someone with that registration info has already registered.` for duplicates.
+- [x] Reject registrations at or after `start_at_utc`.
+- [x] Add a per-event lock around cutoff, duplicate, capacity, and insert operations.
+- [x] Count registrations and enforce capacity while the lock is held.
+- [x] Commit the registration before releasing the lock.
+- [x] Verify capacity-one behavior with concurrent requests.
 
 **Acceptance:** A player can register once for an active event, receives a success response, appears in the Players tab, and cannot bypass cutoff, duplicate, or capacity rules.
 
 ## Phase 8: Hardening and Documentation
 
-- [ ] Add API tests for template loading, event creation, UTC conversion, soft deletion, and validation.
-- [ ] Add registration tests for cutoff, duplicates, capacity, and concurrent last-seat requests.
+- [x] Add API tests for template loading, event creation, UTC conversion, soft deletion, and validation.
+- [x] Add registration tests for cutoff, duplicates, capacity, and concurrent last-seat requests.
 - [ ] Add frontend tests for calendar placement, modal behavior, dynamic controls, and registration states.
 - [ ] Verify QR content and ICS fields against an active event.
 - [ ] Verify browser-local rendering in at least two time zones or with mocked time-zone settings.
