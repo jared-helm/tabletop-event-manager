@@ -1,13 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
 
-export function LoadingState({ label = 'Loading...' }: { label?: string }) {
-  return <p role="status">{label}</p>;
-}
-
-export function ErrorState({ message = 'Something went wrong.' }: { message?: string }) {
-  return <p role="alert">{message}</p>;
-}
-
 export function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -26,18 +18,6 @@ export function Modal({ title, children, onClose }: { title: string; children: R
         </header>
         {children}
       </section>
-    </div>
-  );
-}
-
-export function Tabs({ tabs, activeTab, onChange }: { tabs: string[]; activeTab: string; onChange: (tab: string) => void }) {
-  return (
-    <div role="tablist" aria-label="Event sections">
-      {tabs.map((tab) => (
-        <button key={tab} type="button" role="tab" aria-selected={tab === activeTab} onClick={() => onChange(tab)}>
-          {tab}
-        </button>
-      ))}
     </div>
   );
 }
