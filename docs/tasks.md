@@ -42,30 +42,30 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Schema
 
-- [ ] Create the SQLite schema for `GAME`.
-- [ ] Create the SQLite schema for `EVENT`.
-- [ ] Create the SQLite schema for `GAME_CONFIGURATION_OPTION`.
-- [ ] Create the SQLite schema for `GAME_CONFIGURATION_OPTION_VALUE`.
-- [ ] Create the SQLite schema for `EVENT_CONFIGURATION_SELECTION`.
-- [ ] Create the SQLite schema for `EVENT_REGISTRATION`.
-- [ ] Use `_utc` suffixes for all persisted timestamp fields.
-- [ ] Add foreign keys and required-field constraints.
-- [ ] Add uniqueness for game codes and `(game_id, key)` options.
-- [ ] Add uniqueness for `(option_id, value)` values.
-- [ ] Add uniqueness for `(event_id, option_id, selected_value)` selections.
-- [ ] Add `deleted_at_utc` as nullable soft-delete state.
-- [ ] Add indexes for active calendar events, event registrations, and registration duplicate lookups.
-- [ ] Add migration or initialization behavior that creates the schema on startup.
+- [x] Create the SQLite schema for `GAME`.
+- [x] Create the SQLite schema for `EVENT`.
+- [x] Create the SQLite schema for `GAME_CONFIGURATION_OPTION`.
+- [x] Create the SQLite schema for `GAME_CONFIGURATION_OPTION_VALUE`.
+- [x] Create the SQLite schema for `EVENT_CONFIGURATION_SELECTION`.
+- [x] Create the SQLite schema for `EVENT_REGISTRATION`.
+- [x] Use `_utc` suffixes for all persisted timestamp fields.
+- [x] Add foreign keys and required-field constraints.
+- [x] Add uniqueness for game codes and `(game_id, key)` options.
+- [x] Add uniqueness for `(option_id, value)` values.
+- [x] Add uniqueness for `(event_id, option_id, selected_value)` selections.
+- [x] Add `deleted_at_utc` as nullable soft-delete state.
+- [x] Add indexes for active calendar events, event registrations, and registration duplicate lookups.
+- [x] Add migration or initialization behavior that creates the schema on startup.
 
 **Acceptance:** A fresh SQLite database can be initialized without manual table creation, and the schema matches [the ER diagram](er-diagram.md).
 
 ### Seed Templates
 
-- [ ] Run the existing `scripts/seed-game-templates.sql` as part of database initialization.
-- [ ] Verify seeded games: MTG, Pokemon TCG, and Yu-Gi-Oh TCG.
-- [ ] Verify seeded play types, formats, tournament formats, durations, and player constraints.
-- [ ] Make seeding repeatable without duplicate rows.
-- [ ] Confirm no event rows are inserted by the seed process.
+- [x] Run the existing `scripts/seed-game-templates.sql` as part of database initialization.
+- [x] Verify seeded games: MTG, Pokemon TCG, and Yu-Gi-Oh TCG.
+- [x] Verify seeded play types, formats, tournament formats, durations, and player constraints.
+- [x] Make seeding repeatable without duplicate rows.
+- [x] Confirm no event rows are inserted by the seed process.
 
 **Acceptance:** A fresh database has the three game templates and no events or registrations.
 

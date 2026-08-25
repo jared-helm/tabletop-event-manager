@@ -1,10 +1,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY TabletopEventManager.Api.csproj .
-RUN dotnet restore TabletopEventManager.Api.csproj
+COPY src/TabletopEventManager.Api/TabletopEventManager.Api.csproj ./src/TabletopEventManager.Api/
+RUN dotnet restore ./src/TabletopEventManager.Api/TabletopEventManager.Api.csproj
 
-COPY . .
+COPY scripts ./scripts
+COPY src/TabletopEventManager.Api ./src/TabletopEventManager.Api
+WORKDIR /src/src/TabletopEventManager.Api
 RUN dotnet publish TabletopEventManager.Api.csproj \
     --configuration Release \
     --output /app/publish \

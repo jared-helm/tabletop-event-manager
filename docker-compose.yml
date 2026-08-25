@@ -1,7 +1,8 @@
 services:
   api:
     build:
-      context: ./src/TabletopEventManager.Api
+      context: .
+      dockerfile: ./src/TabletopEventManager.Api/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: Data Source=/app/data/tabletop-event-manager.db

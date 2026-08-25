@@ -20,6 +20,8 @@ dotnet run --project .\src\TabletopEventManager.Api\TabletopEventManager.Api.csp
 
 The API starts at `http://localhost:5080`.
 
+On startup, the API creates the SQLite schema and seeds the three supported game templates. No events or registrations are pre-seeded.
+
 Verify the service is running:
 
 - Root endpoint: http://localhost:5080/

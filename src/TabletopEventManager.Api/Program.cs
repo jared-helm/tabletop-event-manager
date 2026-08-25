@@ -25,6 +25,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 var app = builder.Build();
 
+TabletopEventManager.Api.DatabaseInitializer.Initialize(app.Configuration, app.Environment);
+
 app.UseExceptionHandler();
 app.UseCors("Frontend");
 
