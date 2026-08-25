@@ -73,21 +73,21 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Calendar API
 
-- [ ] Implement `GET /api/events?month=YYYY-MM`.
-- [ ] Return only non-deleted events within the requested month.
-- [ ] Return UTC start time, duration, calculated end time, name, game, capacity, and registration count.
-- [ ] Validate the month query format and define the server's month-boundary behavior.
+- [x] Implement `GET /api/events?month=YYYY-MM`.
+- [x] Return only non-deleted events within the requested month.
+- [x] Return UTC start time, duration, calculated end time, name, game, capacity, and registration count.
+- [x] Validate the month query format and define the server's month-boundary behavior.
 
 ### Calendar UI
 
-- [ ] Implement the month-grid calendar as the main route.
-- [ ] Add previous-month, next-month, and Today controls.
-- [ ] Render every event in its matching local calendar day cell.
-- [ ] Show event name and local start time in each event summary.
-- [ ] Support dense day cells without hiding events behind a `+N more` control.
-- [ ] Add the Create Event button above the calendar on the top-right.
-- [ ] Refresh the calendar after event creation and soft deletion.
-- [ ] Add loading, empty, and API-error states.
+- [x] Implement the month-grid calendar as the main route.
+- [x] Add previous-month, next-month, and Today controls.
+- [x] Render every event in its matching local calendar day cell.
+- [x] Show event name and local start time in each event summary.
+- [x] Support dense day cells without hiding events behind a `+N more` control.
+- [x] Add the Create Event button above the calendar on the top-right.
+- [x] Refresh the calendar after event creation and soft deletion.
+- [x] Add loading, empty, and API-error states.
 
 **Acceptance:** A month view loads from the API, shows all returned events on the correct browser-local dates, and has no pre-seeded events.
 
@@ -95,26 +95,26 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Template API
 
-- [ ] Implement `GET /api/games` for active seeded games.
-- [ ] Implement `GET /api/games/{gameId}/configuration`.
-- [ ] Return active options, values, controls, defaults, ordering, and required flags.
-- [ ] Keep template behavior data-driven rather than branching on game names.
+- [x] Implement `GET /api/games` for active seeded games.
+- [x] Implement `GET /api/games/{gameId}/configuration`.
+- [x] Return active options, values, controls, defaults, ordering, and required flags.
+- [x] Keep template behavior data-driven rather than branching on game names.
 
 ### Create Modal and API
 
-- [ ] Implement the create-event modal with outside-click and X-button close behavior.
-- [ ] Add accessible focus handling and keyboard behavior.
-- [ ] Render event fields and dynamic template controls.
-- [ ] Support `SELECT` and `CHECKBOX_GROUP` controls.
-- [ ] Show tournament format only for Tournament play type.
-- [ ] Convert browser-local date/time input to UTC before submission.
-- [ ] Add client-side validation for required fields, text constraints, dates, and capacity.
-- [ ] Implement `POST /api/events` with authoritative server-side validation.
-- [ ] Snapshot selected configuration and template duration onto the event.
-- [ ] Generate a unique registration slug.
-- [ ] Calculate and return the event end time.
-- [ ] Close the modal and refresh the calendar after success.
-- [ ] Preserve form values and display errors after failure.
+- [x] Implement the create-event modal with outside-click and X-button close behavior.
+- [x] Add accessible focus handling and keyboard behavior.
+- [x] Render event fields and dynamic template controls.
+- [x] Support `SELECT` and `CHECKBOX_GROUP` controls.
+- [x] Show tournament format only for Tournament play type.
+- [x] Convert browser-local date/time input to UTC before submission.
+- [x] Add client-side validation for required fields, text constraints, dates, and capacity.
+- [x] Implement `POST /api/events` with authoritative server-side validation.
+- [x] Snapshot selected configuration and template duration onto the event.
+- [x] Generate a unique registration slug.
+- [x] Calculate and return the event end time.
+- [x] Close the modal and refresh the calendar after success.
+- [x] Preserve form values and display errors after failure.
 
 **Acceptance:** An organizer can create an event for each seeded game, and the new event appears in the correct local calendar day without a full page reload.
 

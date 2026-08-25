@@ -1,12 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { ErrorState, LoadingState, Modal, Tabs } from './components';
-import { formatLocalDateTime } from './dateTime';
-import { getHealth, type HealthResponse } from './api';
+import { formatLocalDateTime, formatLocalTime, localDateKey, monthKey, toUtcIso } from './dateTime';
+import { createEvent, getEvents, getGameConfiguration, getGames, getHealth, type ConfigurationOption, type EventSummary, type Game, type HealthResponse } from './api';
 import './styles.css';
 
 function CalendarPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [events, setEvents] = useState<EventSummary[]>([]);
+  const [error, setError] = useState<Error | null>(null);
+  const [loading, setLoading] = useState(true);
+  const loadEvents = () => {
+    setLoading(true);
+    getEvents(monthKey(month)).then(setEvents).catch(setError).finally(() => setLoading(false));
+  };
+  useEffect(loadEvents, [month]);
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+    const start = new Date(firstDay);
+    start.setDate(firstDay.getDate() - firstDay.getDay());
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return date;
+    });
+  }, [month]);
+  const eventsByDay = new Map<string, EventSummary[]>();
+  events.forEach((event) => {
+    const key = localDateKey(event.startAtUtc);
+    eventsByDay.set(key, [...(eventsByDay.get(key) ?? []), event]);
+  });
 
   return (
     <main>
@@ -17,12 +42,32 @@ function CalendarPage() {
         </div>
         <button type="button" onClick={() => setCreateOpen(true)}>Create event</button>
       </header>
-      <section className="calendar-placeholder" aria-label="Calendar placeholder">
-        <p>Month calendar coming next.</p>
+      <section className="calendar" aria-label="Month calendar">
+        <div className="calendar-toolbar"><button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>Previous</button><strong>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</strong><button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>Next</button><button type="button" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>Today</button></div>
+        <div className="calendar-weekdays">{['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day) => <strong key={day}>{day.slice(0, 3)}</strong>)}</div>
+        {loading && <LoadingState label="Loading events..." />}
+        {error && <ErrorState message={error.message} />}
+        <div className="calendar-grid">
+          {calendarDays.map((date) => <div className={`calendar-day ${date.getMonth() !== month.getMonth() ? 'outside-month' : ''}`} key={date.toISOString()}><time dateTime={date.toISOString()}>{date.getDate()}</time>{(eventsByDay.get(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`) ?? []).map((event) => <button className="calendar-event" type="button" key={event.id}><span>{formatLocalTime(event.startAtUtc)}</span> {event.name}</button>)}</div>)}
+        </div>
       </section>
-      {isCreateOpen && <Modal title="Create event" onClose={() => setCreateOpen(false)}><p>The event form will be added in the event-creation phase.</p></Modal>}
+      {isCreateOpen && <CreateEventModal onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); loadEvents(); }} />}
     </main>
   );
+}
+
+function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [games, setGames] = useState<Game[]>([]);
+  const [gameId, setGameId] = useState<number>(0);
+  const [configuration, setConfiguration] = useState<ConfigurationOption[]>([]);
+  const [form, setForm] = useState({ name: '', startAt: '', capacity: '2', location: '', playType: 'CASUAL', tournamentFormat: '' });
+  const [format, setFormat] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { getGames().then((items) => { setGames(items); if (items[0]) setGameId(items[0].id); }).catch((reason: Error) => setError(reason.message)); }, []);
+  useEffect(() => { if (gameId) getGameConfiguration(gameId).then((result) => setConfiguration(result.options)).catch((reason: Error) => setError(reason.message)); }, [gameId]);
+  const formatOption = configuration.find((option) => option.key === 'event_format');
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); setError(null); if (!form.name.trim() || !form.startAt || Number(form.capacity) < 0 || Number(form.capacity) > 30 || !format) { setError('Complete the required fields and use a capacity from 0 to 30.'); return; } try { await createEvent({ name: form.name, gameId, startAtUtc: toUtcIso(form.startAt), capacity: Number(form.capacity), location: form.location, playType: form.playType, tournamentFormat: form.tournamentFormat, configurationSelections: { event_format: [format] } }); onCreated(); } catch (reason) { setError((reason as Error).message); } };
+  return <Modal title="Create event" onClose={onClose}><form className="event-form" onSubmit={submit}><label>Event name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} maxLength={120} required /></label><label>Game<select value={gameId} onChange={(event) => setGameId(Number(event.target.value))}>{games.map((game) => <option value={game.id} key={game.id}>{game.displayName}</option>)}</select></label><label>Start time<input type="datetime-local" value={form.startAt} onChange={(event) => setForm({ ...form, startAt: event.target.value })} required /></label><label>Capacity<input type="number" min="0" max="30" value={form.capacity} onChange={(event) => setForm({ ...form, capacity: event.target.value })} required /></label><label>Location<input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} maxLength={200} /></label><label>Play type<select value={form.playType} onChange={(event) => setForm({ ...form, playType: event.target.value, tournamentFormat: event.target.value === 'CASUAL' ? '' : form.tournamentFormat })}><option value="CASUAL">Casual/Friendly</option><option value="TOURNAMENT">Tournament</option></select></label>{formatOption && <label>{formatOption.label}<select value={format} onChange={(event) => setFormat(event.target.value)} required><option value="">Choose a format</option>{formatOption.values.map((value) => <option value={value.value} key={value.id}>{value.label}</option>)}</select></label>}{form.playType === 'TOURNAMENT' && <label>Tournament format<select value={form.tournamentFormat} onChange={(event) => setForm({ ...form, tournamentFormat: event.target.value })} required><option value="">Choose a format</option><option value="SWISS_TOP_CUT">Swiss + Top Cut</option><option value="DOUBLE_ELIMINATION">Double Elimination</option></select></label>}{error && <ErrorState message={error} />}<button type="submit">Create event</button></form></Modal>;
 }
 
 function RegistrationPage() {
