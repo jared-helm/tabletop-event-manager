@@ -80,10 +80,8 @@ public sealed class EventRepository
         return new GameConfigurationResponse(gameId, options);
     }
 
-    public async Task<IReadOnlyList<EventSummary>> GetEventsAsync(int year, int month, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<EventSummary>> GetEventsAsync(DateTimeOffset start, DateTimeOffset end, CancellationToken cancellationToken)
     {
-        var start = new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
-        var end = start.AddMonths(1);
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """

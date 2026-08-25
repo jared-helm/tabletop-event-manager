@@ -27,7 +27,7 @@ button { border: 0; border-radius: 4px; padding: .75rem 1rem; color: #fffdf9; ba
 .calendar-day:nth-child(7n) { border-right: 0; }
 .calendar-day time { display: block; margin-bottom: .35rem; font-weight: 700; }
 .outside-month { color: #a7aaa4; background: #f8f5ef; }
-.calendar-event { display: block; width: 100%; margin: .25rem 0; padding: .35rem; overflow: hidden; color: #17201d; text-align: left; text-overflow: ellipsis; white-space: nowrap; background: #d9e7dd; }
+.calendar-event { display: block; width: 100%; margin: .2rem 0; padding: .22rem .3rem; overflow: hidden; color: #17201d; font-size: .72rem; line-height: 1.25; text-align: left; text-overflow: ellipsis; white-space: nowrap; background: #d9e7dd; }
 .event-form { display: grid; gap: .9rem; }
 .event-form label { display: grid; gap: .35rem; font: 700 .85rem/1.2 Arial, sans-serif; }
 .event-form input, .event-form select { width: 100%; padding: .65rem; border: 1px solid #b9b6ad; border-radius: 3px; background: #fff; font: inherit; }
@@ -47,5 +47,5 @@ button { border: 0; border-radius: 4px; padding: .75rem 1rem; color: #fffdf9; ba
   .calendar-toolbar strong { width: 100%; order: -1; }
   .calendar-day { min-height: 92px; padding: .35rem; }
   .calendar-weekdays strong { padding: .5rem .25rem; text-align: center; }
-  .calendar-event { padding: .25rem; font-size: .75rem; }
+  .calendar-event { padding: .2rem .25rem; font-size: .65rem; }
 }

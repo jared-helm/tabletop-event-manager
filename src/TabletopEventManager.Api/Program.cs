@@ -53,14 +53,17 @@ app.MapGet("/api/games/{gameId:long}/configuration", async (long gameId, Tableto
     return configuration is null ? Results.NotFound() : Results.Ok(configuration);
 });
 
-app.MapGet("/api/events", async (string? month, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
+app.MapGet("/api/events", async (string? startUtc, string? endUtc, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
 {
-    if (string.IsNullOrWhiteSpace(month) || !DateTime.TryParseExact($"{month}-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var monthStart))
+    if (string.IsNullOrWhiteSpace(startUtc) || string.IsNullOrWhiteSpace(endUtc)
+        || !DateTimeOffset.TryParse(startUtc, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
+        || !DateTimeOffset.TryParse(endUtc, CultureInfo.InvariantCulture, DateTimeStyles.None, out var end)
+        || end <= start)
     {
-        return Results.BadRequest(new { error = "month must use the YYYY-MM format." });
+        return Results.BadRequest(new { error = "startUtc and endUtc must be valid ISO 8601 timestamps with startUtc before endUtc." });
     }
 
-    return Results.Ok(await repository.GetEventsAsync(monthStart.Year, monthStart.Month, cancellationToken));
+    return Results.Ok(await repository.GetEventsAsync(start, end, cancellationToken));
 });
 
 app.MapPost("/api/events", async (TabletopEventManager.Api.CreateEventRequest request, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>

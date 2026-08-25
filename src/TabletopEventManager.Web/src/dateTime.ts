@@ -9,8 +9,9 @@ export function toUtcIso(localDateTime: string): string {
   return new Date(localDateTime).toISOString();
 }
 
-export function monthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+export function formatDateTimeLocal(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export function localDateKey(timestampUtc: string): string {

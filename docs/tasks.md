@@ -73,10 +73,10 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Calendar API
 
-- [x] Implement `GET /api/events?month=YYYY-MM`.
-- [x] Return only non-deleted events within the requested month.
+- [x] Implement `GET /api/events?startUtc=...&endUtc=...`.
+- [x] Return only non-deleted events within the requested UTC range.
 - [x] Return UTC start time, duration, calculated end time, name, game, capacity, and registration count.
-- [x] Validate the month query format and define the server's month-boundary behavior.
+- [x] Validate the range query parameters, requiring `startUtc` before `endUtc`.
 
 ### Calendar UI
 

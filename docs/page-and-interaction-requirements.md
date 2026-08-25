@@ -47,11 +47,12 @@ The form collects the event properties required to create an event, including:
 - Game type
 - Date and start time
 - Player capacity
-- Location, if supported by the event model
 - Play type, such as Casual/Friendly or Tournament
 - Game-specific event format
 - Tournament format when Tournament is selected
 - Any additional options defined by the selected game's configuration template
+
+Location is not collected per event; the application is scoped to a single store, so location is a fixed application setting rather than a per-event field.
 
 ### Dynamic Game Configuration
 

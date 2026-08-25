@@ -52,7 +52,6 @@ export type CreateEventRequest = {
   gameId: number;
   startAtUtc: string;
   capacity: number;
-  location: string;
   playType: string;
   tournamentFormat: string;
   configurationSelections: Record<string, string[]>;
@@ -70,8 +69,8 @@ export function getGameConfiguration(gameId: number): Promise<GameConfiguration>
   return apiRequest<GameConfiguration>(`/api/games/${gameId}/configuration`);
 }
 
-export function getEvents(month: string): Promise<EventSummary[]> {
-  return apiRequest<EventSummary[]>(`/api/events?month=${month}`);
+export function getEvents(startUtc: string, endUtc: string): Promise<EventSummary[]> {
+  return apiRequest<EventSummary[]>(`/api/events?startUtc=${encodeURIComponent(startUtc)}&endUtc=${encodeURIComponent(endUtc)}`);
 }
 
 export function createEvent(request: CreateEventRequest): Promise<EventSummary> {
