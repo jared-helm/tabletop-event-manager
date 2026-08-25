@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Data.Sqlite;
 
 namespace TabletopEventManager.Api;
@@ -5,6 +6,10 @@ namespace TabletopEventManager.Api;
 public sealed class EventRepository
 {
     private readonly string connectionString;
+
+    // In-process locking is sufficient for a single API instance; a multi-instance
+    // deployment would need a database-backed lock instead.
+    private readonly ConcurrentDictionary<long, SemaphoreSlim> registrationLocks = new();
 
     public EventRepository(IConfiguration configuration)
     {
@@ -187,6 +192,179 @@ public sealed class EventRepository
         return rowsAffected > 0;
     }
 
+    public async Task<RegistrationsResponse> GetRegistrationsAsync(long eventId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT first_name, last_name, player_tag
+            FROM EVENT_REGISTRATION
+            WHERE event_id = $eventId
+            ORDER BY registered_at_utc
+            """;
+        command.Parameters.AddWithValue("$eventId", eventId);
+
+        var players = new List<PlayerRegistration>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            players.Add(new PlayerRegistration(reader.GetString(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
+        }
+
+        return new RegistrationsResponse(players.Count, players);
+    }
+
+    public async Task<RegistrationPageContext?> GetRegistrationContextAsync(string slug, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.location, g.display_name,
+                   (SELECT COUNT(*) FROM EVENT_REGISTRATION r WHERE r.event_id = e.id)
+            FROM EVENT e
+            INNER JOIN GAME g ON g.id = e.game_id
+            WHERE e.registration_slug = $slug AND e.deleted_at_utc IS NULL
+            """;
+        command.Parameters.AddWithValue("$slug", slug);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var startAtUtc = DateTimeOffset.Parse(reader.GetString(1));
+        var durationMinutes = reader.GetInt32(2);
+        return new RegistrationPageContext(
+            reader.GetString(0), reader.GetString(5), startAtUtc, startAtUtc.AddMinutes(durationMinutes),
+            reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetInt32(3), reader.GetInt64(6),
+            DateTimeOffset.UtcNow >= startAtUtc);
+    }
+
+    public async Task<RegistrationResult> RegisterPlayerAsync(string slug, string? firstName, string? lastName, string? playerTag, CancellationToken cancellationToken)
+    {
+        var normalizedFirstName = (firstName ?? string.Empty).Trim();
+        var normalizedLastName = (lastName ?? string.Empty).Trim();
+        var normalizedTag = string.IsNullOrWhiteSpace(playerTag) ? null : playerTag.Trim();
+
+        if (normalizedFirstName.Length is 0 or > 60 || normalizedLastName.Length is 0 or > 60 || normalizedTag is { Length: > 60 })
+        {
+            return RegistrationResult.Invalid("First name and last name are required and must be 60 characters or fewer.");
+        }
+
+        long eventId;
+        await using (var lookupConnection = await OpenConnectionAsync(cancellationToken))
+        await using (var lookupCommand = lookupConnection.CreateCommand())
+        {
+            lookupCommand.CommandText = "SELECT id FROM EVENT WHERE registration_slug = $slug AND deleted_at_utc IS NULL";
+            lookupCommand.Parameters.AddWithValue("$slug", slug);
+            var value = await lookupCommand.ExecuteScalarAsync(cancellationToken);
+            if (value is null)
+            {
+                return RegistrationResult.Unavailable();
+            }
+
+            eventId = (long)value;
+        }
+
+        var eventLock = registrationLocks.GetOrAdd(eventId, _ => new SemaphoreSlim(1, 1));
+        await eventLock.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenConnectionAsync(cancellationToken);
+            await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+
+            string eventName;
+            string gameName;
+            DateTimeOffset startAtUtc;
+            int durationMinutes;
+            int capacity;
+            await using (var eventCommand = connection.CreateCommand())
+            {
+                eventCommand.Transaction = transaction;
+                eventCommand.CommandText = """
+                    SELECT e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.deleted_at_utc, g.display_name
+                    FROM EVENT e
+                    INNER JOIN GAME g ON g.id = e.game_id
+                    WHERE e.id = $eventId
+                    """;
+                eventCommand.Parameters.AddWithValue("$eventId", eventId);
+                await using var reader = await eventCommand.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken) || !reader.IsDBNull(4))
+                {
+                    return RegistrationResult.Unavailable();
+                }
+
+                eventName = reader.GetString(0);
+                startAtUtc = DateTimeOffset.Parse(reader.GetString(1));
+                durationMinutes = reader.GetInt32(2);
+                capacity = reader.GetInt32(3);
+                gameName = reader.GetString(5);
+            }
+
+            if (DateTimeOffset.UtcNow >= startAtUtc)
+            {
+                return RegistrationResult.Closed();
+            }
+
+            await using (var duplicateCommand = connection.CreateCommand())
+            {
+                duplicateCommand.Transaction = transaction;
+                duplicateCommand.CommandText = """
+                    SELECT COUNT(*) FROM EVENT_REGISTRATION
+                    WHERE event_id = $eventId
+                      AND (
+                        (lower(trim(first_name)) = lower($firstName) AND lower(trim(last_name)) = lower($lastName))
+                        OR ($playerTag IS NOT NULL AND lower(trim(player_tag)) = lower($playerTag))
+                      )
+                    """;
+                duplicateCommand.Parameters.AddWithValue("$eventId", eventId);
+                duplicateCommand.Parameters.AddWithValue("$firstName", normalizedFirstName);
+                duplicateCommand.Parameters.AddWithValue("$lastName", normalizedLastName);
+                duplicateCommand.Parameters.AddWithValue("$playerTag", (object?)normalizedTag ?? DBNull.Value);
+                var duplicateCount = (long)(await duplicateCommand.ExecuteScalarAsync(cancellationToken) ?? 0L);
+                if (duplicateCount > 0)
+                {
+                    return RegistrationResult.Duplicate();
+                }
+            }
+
+            await using (var countCommand = connection.CreateCommand())
+            {
+                countCommand.Transaction = transaction;
+                countCommand.CommandText = "SELECT COUNT(*) FROM EVENT_REGISTRATION WHERE event_id = $eventId";
+                countCommand.Parameters.AddWithValue("$eventId", eventId);
+                var currentCount = (long)(await countCommand.ExecuteScalarAsync(cancellationToken) ?? 0L);
+                if (currentCount >= capacity)
+                {
+                    return RegistrationResult.Full();
+                }
+            }
+
+            await using (var insertCommand = connection.CreateCommand())
+            {
+                insertCommand.Transaction = transaction;
+                insertCommand.CommandText = """
+                    INSERT INTO EVENT_REGISTRATION (event_id, first_name, last_name, player_tag, registered_at_utc)
+                    VALUES ($eventId, $firstName, $lastName, $playerTag, $registeredAtUtc)
+                    """;
+                insertCommand.Parameters.AddWithValue("$eventId", eventId);
+                insertCommand.Parameters.AddWithValue("$firstName", normalizedFirstName);
+                insertCommand.Parameters.AddWithValue("$lastName", normalizedLastName);
+                insertCommand.Parameters.AddWithValue("$playerTag", (object?)normalizedTag ?? DBNull.Value);
+                insertCommand.Parameters.AddWithValue("$registeredAtUtc", DateTimeOffset.UtcNow.ToString("O"));
+                await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return RegistrationResult.Success(new RegistrationConfirmation(eventName, gameName, startAtUtc, startAtUtc.AddMinutes(durationMinutes), normalizedFirstName, normalizedLastName));
+        }
+        finally
+        {
+            eventLock.Release();
+        }
+    }
+
     public async Task<CreateEventResult> CreateEventAsync(CreateEventRequest request, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -347,4 +525,19 @@ public sealed record CreateEventResult(bool IsSuccess, string? Error, EventSumma
 {
     public static CreateEventResult Invalid(string error) => new(false, error, null);
     public static CreateEventResult Success(EventSummary @event) => new(true, null, @event);
+}
+public sealed record PlayerRegistration(string FirstName, string LastName, string? PlayerTag);
+public sealed record RegistrationsResponse(long TotalCount, IReadOnlyList<PlayerRegistration> Players);
+public sealed record RegistrationPageContext(string EventName, string GameName, DateTimeOffset StartAtUtc, DateTimeOffset EndAtUtc, string? Location, int Capacity, long RegistrationCount, bool IsClosed);
+public sealed record RegisterPlayerRequest(string? FirstName, string? LastName, string? PlayerTag);
+public sealed record RegistrationConfirmation(string EventName, string GameName, DateTimeOffset StartAtUtc, DateTimeOffset EndAtUtc, string FirstName, string LastName);
+public enum RegistrationOutcome { Success, Invalid, Unavailable, Closed, Duplicate, Full }
+public sealed record RegistrationResult(RegistrationOutcome Outcome, string? Error, RegistrationConfirmation? Confirmation)
+{
+    public static RegistrationResult Success(RegistrationConfirmation confirmation) => new(RegistrationOutcome.Success, null, confirmation);
+    public static RegistrationResult Invalid(string error) => new(RegistrationOutcome.Invalid, error, null);
+    public static RegistrationResult Unavailable() => new(RegistrationOutcome.Unavailable, "This event is no longer available.", null);
+    public static RegistrationResult Closed() => new(RegistrationOutcome.Closed, "Registration has closed for this event.", null);
+    public static RegistrationResult Duplicate() => new(RegistrationOutcome.Duplicate, "Someone with that registration info has already registered.", null);
+    public static RegistrationResult Full() => new(RegistrationOutcome.Full, "This event is full.", null);
 }

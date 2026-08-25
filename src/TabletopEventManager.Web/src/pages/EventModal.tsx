@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ErrorState, LoadingState, Modal, Tabs } from '../components';
 import { formatLocalDateTime } from '../dateTime';
-import { deleteEvent, getCalendarInviteUrl, getEventDetail, getRegistrationResources, type EventDetail, type RegistrationResources } from '../api';
+import { deleteEvent, getCalendarInviteUrl, getEventDetail, getRegistrations, getRegistrationResources, type EventDetail, type RegistrationResources, type RegistrationsResponse } from '../api';
 
 const PLAY_TYPE_LABELS: Record<string, string> = {
   CASUAL: 'Casual/Friendly',
@@ -24,6 +24,8 @@ export function EventModal({ eventId, onClose, onDeleted }: { eventId: number; o
   const [resources, setResources] = useState<RegistrationResources | null>(null);
   const [resourcesError, setResourcesError] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [registrations, setRegistrations] = useState<RegistrationsResponse | null>(null);
+  const [registrationsError, setRegistrationsError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -34,6 +36,9 @@ export function EventModal({ eventId, onClose, onDeleted }: { eventId: number; o
     getRegistrationResources(eventId)
       .then(setResources)
       .catch((reason: Error) => setResourcesError(reason.message));
+    getRegistrations(eventId)
+      .then(setRegistrations)
+      .catch((reason: Error) => setRegistrationsError(reason.message));
   }, [eventId]);
 
   const copyRegistrationUrl = async () => {
@@ -97,7 +102,33 @@ export function EventModal({ eventId, onClose, onDeleted }: { eventId: number; o
         </div>
       )}
       {!loading && event && activeTab === 'Players' && (
-        <p>Player registrations will be shown here once registration is implemented.</p>
+        <div className="players-tab">
+          {registrationsError && <ErrorState message={registrationsError} />}
+          {!registrationsError && !registrations && <LoadingState label="Loading players..." />}
+          {registrations && (
+            <>
+              <p className="player-count">{registrations.totalCount} registered</p>
+              {registrations.totalCount === 0 ? (
+                <p>No players have registered yet.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr><th>First name</th><th>Last name</th><th>Player tag</th></tr>
+                  </thead>
+                  <tbody>
+                    {registrations.players.map((player, index) => (
+                      <tr key={index}>
+                        <td>{player.firstName}</td>
+                        <td>{player.lastName}</td>
+                        <td>{player.playerTag ?? ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </div>
       )}
       {!loading && event && activeTab === 'Registration Resources' && (
         <div className="registration-resources">

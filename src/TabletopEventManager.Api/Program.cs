@@ -134,6 +134,27 @@ app.MapGet("/api/events/{eventId:long}/calendar-invite", async (long eventId, Ta
     return Results.File(icsBytes, "text/calendar", $"{detail.RegistrationSlug}.ics");
 });
 
+app.MapGet("/api/events/{eventId:long}/registrations", async (long eventId, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
+    Results.Ok(await repository.GetRegistrationsAsync(eventId, cancellationToken)));
+
+app.MapGet("/api/registration/{slug}", async (string slug, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
+{
+    var context = await repository.GetRegistrationContextAsync(slug, cancellationToken);
+    return context is null ? Results.NotFound(new { error = "This event is no longer available." }) : Results.Ok(context);
+});
+
+app.MapPost("/api/registration/{slug}", async (string slug, TabletopEventManager.Api.RegisterPlayerRequest request, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
+{
+    var result = await repository.RegisterPlayerAsync(slug, request.FirstName, request.LastName, request.PlayerTag, cancellationToken);
+    return result.Outcome switch
+    {
+        TabletopEventManager.Api.RegistrationOutcome.Success => Results.Created($"/api/registration/{slug}", result.Confirmation),
+        TabletopEventManager.Api.RegistrationOutcome.Invalid => Results.BadRequest(new { error = result.Error }),
+        TabletopEventManager.Api.RegistrationOutcome.Unavailable => Results.NotFound(new { error = result.Error }),
+        _ => Results.Conflict(new { error = result.Error }),
+    };
+});
+
 app.Run();
 
 public partial class Program;

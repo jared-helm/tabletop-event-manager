@@ -159,24 +159,24 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Players Tab API and UI
 
-- [ ] Implement `GET /api/events/{eventId}/registrations`.
-- [ ] Return total count and player rows.
-- [ ] Display total player count above the table.
-- [ ] Display first name, last name, and optional player tag only.
-- [ ] Add loading and empty states.
-- [ ] Refresh the tab when the modal opens and after registration completes.
+- [x] Implement `GET /api/events/{eventId}/registrations`.
+- [x] Return total count and player rows.
+- [x] Display total player count above the table.
+- [x] Display first name, last name, and optional player tag only.
+- [x] Add loading and empty states.
+- [x] Refresh the tab when the modal opens and after registration completes.
 
 ### Public Registration Page
 
-- [ ] Implement `GET /api/registration/{slug}`.
-- [ ] Implement `POST /api/registration/{slug}`.
-- [ ] Add the registration route reachable from the slug.
-- [ ] Display event name, game, local start/end time, and location.
-- [ ] Collect required first name and last name separately.
-- [ ] Collect optional player tag.
-- [ ] Add client-side input validation and recoverable error handling.
-- [ ] Show a success state only after the API confirms persistence.
-- [ ] Show clear errors for full, started, deleted, unknown, invalid, and unavailable events.
+- [x] Implement `GET /api/registration/{slug}`.
+- [x] Implement `POST /api/registration/{slug}`.
+- [x] Add the registration route reachable from the slug.
+- [x] Display event name, game, local start/end time, and location.
+- [x] Collect required first name and last name separately.
+- [x] Collect optional player tag.
+- [x] Add client-side input validation and recoverable error handling.
+- [x] Show a success state only after the API confirms persistence.
+- [x] Show clear errors for full, started, deleted, unknown, invalid, and unavailable events.
 
 ### Registration Correctness
 

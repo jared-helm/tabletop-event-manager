@@ -46,6 +46,20 @@ button { border: 0; border-radius: 4px; padding: .75rem 1rem; color: #fffdf9; ba
 .registration-resources { display: grid; gap: .75rem; }
 .registration-qr { width: 160px; height: 160px; border: 1px solid #d7d0c4; }
 .copy-feedback { font: 700 .85rem/1.3 Arial, sans-serif; color: #225b50; }
+.player-count { font: 700 .95rem/1.3 Arial, sans-serif; }
+.players-tab table { width: 100%; border-collapse: collapse; }
+.players-tab th, .players-tab td { padding: .5rem; border-bottom: 1px solid #e4ded4; text-align: left; }
+.registration-page { width: min(560px, 90vw); padding: 4rem 0; }
+.registration-card { padding: 2rem; border: 1px solid #d7d0c4; background: #fffdf9; box-shadow: 0 1rem 3rem rgb(23 32 29 / 8%); }
+.registration-card h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); }
+.registration-summary { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; margin: 1.25rem 0 1.75rem; padding: 1rem 1.25rem; border: 1px solid #e4ded4; background: #f8f5ef; }
+.registration-summary dt { font: 700 .8rem/1.3 Arial, sans-serif; color: #6d756f; }
+.registration-summary dd { margin: 0; }
+.registration-form { margin-top: 1.5rem; }
+.registration-form button[type='submit'] { width: 100%; margin-top: .5rem; padding: .85rem 1rem; }
+.registration-confirmation { text-align: center; }
+.registration-confirmation .eyebrow { color: #225b50; }
+.registration-event-name { font: 700 1.1rem/1.3 Arial, sans-serif; }
 
 @media (max-width: 640px) {
   main { padding: 2rem 0; }
@@ -55,4 +69,6 @@ button { border: 0; border-radius: 4px; padding: .75rem 1rem; color: #fffdf9; ba
   .calendar-day { min-height: 92px; padding: .35rem; }
   .calendar-weekdays strong { padding: .5rem .25rem; text-align: center; }
   .calendar-event { padding: .2rem .25rem; font-size: .65rem; }
+  .registration-page { padding: 2rem 0; }
+  .registration-card { padding: 1.5rem; }
 }

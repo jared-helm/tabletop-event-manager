@@ -62,6 +62,27 @@ export type EventDetail = EventSummary & {
   configurationSelections: EventConfigurationSelection[];
 };
 export type RegistrationResources = { registrationUrl: string; qrCodeDataUri: string };
+export type PlayerRegistration = { firstName: string; lastName: string; playerTag: string | null };
+export type RegistrationsResponse = { totalCount: number; players: PlayerRegistration[] };
+export type RegistrationPageContext = {
+  eventName: string;
+  gameName: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  location: string | null;
+  capacity: number;
+  registrationCount: number;
+  isClosed: boolean;
+};
+export type RegisterPlayerRequest = { firstName: string; lastName: string; playerTag: string };
+export type RegistrationConfirmation = {
+  eventName: string;
+  gameName: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  firstName: string;
+  lastName: string;
+};
 
 export function getHealth(): Promise<HealthResponse> {
   return apiRequest<HealthResponse>('/health');
@@ -96,6 +117,21 @@ export async function deleteEvent(eventId: number): Promise<void> {
     const body = await response.json().catch(() => null) as { error?: string } | null;
     throw new Error(body?.error ?? `API request failed with status ${response.status}`);
   }
+}
+
+export function getRegistrations(eventId: number): Promise<RegistrationsResponse> {
+  return apiRequest<RegistrationsResponse>(`/api/events/${eventId}/registrations`);
+}
+
+export function getRegistrationContext(slug: string): Promise<RegistrationPageContext> {
+  return apiRequest<RegistrationPageContext>(`/api/registration/${slug}`);
+}
+
+export function registerPlayer(slug: string, request: RegisterPlayerRequest): Promise<RegistrationConfirmation> {
+  return apiRequest<RegistrationConfirmation>(`/api/registration/${slug}`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
 }
 
 export function getRegistrationResources(eventId: number): Promise<RegistrationResources> {
