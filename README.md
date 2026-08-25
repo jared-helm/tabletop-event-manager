@@ -71,6 +71,32 @@ cd .\src\TabletopEventManager.Web
 cmd /c npm test
 ```
 
+## Write up
+
+- How did you determine and enforce how many people can attend an event? Where does capacity live, and what happens under concurrent registrations for the last seat?
+
+The admin is able to determine how many people can attend an event when they set the event up. Since 30 attendees was our hard limit the UI doesn't allow values greater than this and that validation is run as a redundant check in the api using a fluent validator. Capacity lives on the event itself since its common to all events. In the case of concurrent registrations, only one registration is able to write to the database with the use of event specific semaphores. If this were a larger system we could look into using a distributed lock to handle these scenarios.
+
+- How does your template system work, and what would adding a 4th game (or a non-card game) require?
+
+The template system has a core entity of `Game` that holds basic details such as the name of the game. Properties specific to each game are seeded into `GameConfigurationOption`. Each game type can map any number of configuration options based on how that game plays. When an actual event is set up the selected values of those options for that event are stored in `EventConfigurationSelection`. For options with an enum of values available to select, we have a separate table called `GameConfigurationOptionValue`. This table contains arrays of possible values for our configuration options. 
+
+Adding a 4th game would simply require seeding the game as well as its configuration options. This could be added as a future screen where the user could specify the properties applicable to this new game type.
+
+- What did you deliberately cut or fake to stay in the timebox, and what would you build next?
+
+I deliberately did not build out a system for adding or removing propeprties for a game type or any kind of detail screen showing the configuration for each game. All configuration is pre-seeded with the files in the scripts folder.
+
+There's a lot of things that could be added to this project but the first choice would probably be accounts and authentication. This would add security and allow us to enforce authorization rules. It would also allow users registering for events to save their information so registration could be super straightforward. This would also allow us to link event results to an account so that participants could see their progress tracked over time at various events. 
+
+After adding accounts, creating screens for managing game types would be a huge plus. Being able to add a new game type easily would allow a store manager to easily adapt to new popular games. 
+
+- AI usage note (a few sentences): which tools you used and for what, and one example of AI output you rejected or had to fix.
+
+I used github copilot inside of vs code for designing and implementing this project. I used chatgpt occasionally for quick questions to save on token cost. I started by having copilot scan the requirements document to general functional and non-functional requirements and worked with AI to edit them. 
+
+One example of AI output i had to fix was the organization of the api project. It put all of the routes in the program.cs file and I had to prompt it to create controllers and service methods as well as instructing it to pull business logic out of the repository layer. I had to make similar adjustments to the front end to get it to organize the files into components and pages. 
+
 ## AI Usage Note
 
 This project was built with GitHub Copilot (Claude-based agent mode) for planning documents, schema design, the C# API, the React frontend, and the integration test suite. 
