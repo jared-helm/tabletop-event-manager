@@ -11,5 +11,6 @@
   <ItemGroup>
     <Content Include="..\..\scripts\schema.sql" Link="scripts\schema.sql" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
     <Content Include="..\..\scripts\seed-game-templates.sql" Link="scripts\seed-game-templates.sql" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+    <Content Include="..\..\scripts\seed-sample-events.sql" Link="scripts\seed-sample-events.sql" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
   </ItemGroup>
 </Project>

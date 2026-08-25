@@ -24,6 +24,7 @@ public static class DatabaseInitializer
         connection.Open();
         ExecuteScript(connection, ResolveScriptPath(environment, "schema.sql"));
         ExecuteScript(connection, ResolveScriptPath(environment, "seed-game-templates.sql"));
+        ExecuteScript(connection, ResolveScriptPath(environment, "seed-sample-events.sql"));
     }
 
     private static string ResolveScriptPath(IWebHostEnvironment environment, string fileName)

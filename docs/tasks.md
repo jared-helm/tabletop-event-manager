@@ -65,9 +65,9 @@ This checklist turns [the software design](software-design.md) into an implement
 - [x] Verify seeded games: MTG, Pokemon TCG, and Yu-Gi-Oh TCG.
 - [x] Verify seeded play types, formats, tournament formats, durations, and player constraints.
 - [x] Make seeding repeatable without duplicate rows.
-- [x] Confirm no event rows are inserted by the seed process.
+- [x] Seed 3 sample events via `scripts/seed-sample-events.sql` (one in August, two in September, one per game) for local development and demos.
 
-**Acceptance:** A fresh database has the three game templates and no events or registrations.
+**Acceptance:** A fresh database has the three game templates and the seeded sample events.
 
 ## Phase 3: Calendar Page
 
