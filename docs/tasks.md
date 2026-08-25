@@ -143,15 +143,15 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ## Phase 6: Registration Resources
 
-- [ ] Implement `GET /api/events/{eventId}/registration-resources`.
-- [ ] Display the clickable registration URL.
-- [ ] Add a copy-to-clipboard action and feedback state.
-- [ ] Generate a QR code with a maintained library.
-- [ ] Ensure the QR code encodes the exact registration URL.
-- [ ] Generate a downloadable ICS file with a maintained library.
-- [ ] Use event start plus stored duration for the ICS end time.
-- [ ] Include title, localizable start/end time, and location in the ICS file.
-- [ ] Handle deleted or unknown events with an unavailable state.
+- [x] Implement `GET /api/events/{eventId}/registration-resources`.
+- [x] Display the clickable registration URL.
+- [x] Add a copy-to-clipboard action and feedback state.
+- [x] Generate a QR code with a maintained library.
+- [x] Ensure the QR code encodes the exact registration URL.
+- [x] Generate a downloadable ICS file with a maintained library.
+- [x] Use event start plus stored duration for the ICS end time.
+- [x] Include title, localizable start/end time, and location in the ICS file.
+- [x] Handle deleted or unknown events with an unavailable state.
 
 **Acceptance:** The Registration Resources tab provides a working link, copy action, QR code, and importable ICS download for an active event.
 

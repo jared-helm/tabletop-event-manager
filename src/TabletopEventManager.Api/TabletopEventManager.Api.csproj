@@ -6,7 +6,9 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Ical.Net" Version="5.2.3" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="QRCoder" Version="1.8.0" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\scripts\schema.sql" Link="scripts\schema.sql" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ErrorState, LoadingState, Modal, Tabs } from '../components';
 import { formatLocalDateTime } from '../dateTime';
-import { deleteEvent, getEventDetail, type EventDetail } from '../api';
+import { deleteEvent, getCalendarInviteUrl, getEventDetail, getRegistrationResources, type EventDetail, type RegistrationResources } from '../api';
 
 const PLAY_TYPE_LABELS: Record<string, string> = {
   CASUAL: 'Casual/Friendly',
@@ -21,6 +21,9 @@ export function EventModal({ eventId, onClose, onDeleted }: { eventId: number; o
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setDeleting] = useState(false);
+  const [resources, setResources] = useState<RegistrationResources | null>(null);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -28,7 +31,20 @@ export function EventModal({ eventId, onClose, onDeleted }: { eventId: number; o
       .then(setEvent)
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
+    getRegistrationResources(eventId)
+      .then(setResources)
+      .catch((reason: Error) => setResourcesError(reason.message));
   }, [eventId]);
+
+  const copyRegistrationUrl = async () => {
+    if (!resources) return;
+    try {
+      await navigator.clipboard.writeText(resources.registrationUrl);
+      setCopyFeedback('Copied!');
+    } catch {
+      setCopyFeedback('Could not copy the link.');
+    }
+  };
 
   const requestDelete = async () => {
     if (!window.confirm('Delete this event? This cannot be undone.')) return;
@@ -84,7 +100,23 @@ export function EventModal({ eventId, onClose, onDeleted }: { eventId: number; o
         <p>Player registrations will be shown here once registration is implemented.</p>
       )}
       {!loading && event && activeTab === 'Registration Resources' && (
-        <p>The registration link, QR code, and calendar invite will be shown here once implemented.</p>
+        <div className="registration-resources">
+          {resourcesError && <ErrorState message={resourcesError} />}
+          {!resourcesError && !resources && <LoadingState label="Loading registration resources..." />}
+          {resources && (
+            <>
+              <p>
+                <a href={resources.registrationUrl} target="_blank" rel="noreferrer">{resources.registrationUrl}</a>
+              </p>
+              <button type="button" onClick={copyRegistrationUrl}>Copy link</button>
+              {copyFeedback && <span role="status" className="copy-feedback"> {copyFeedback}</span>}
+              <p>
+                <a href={getCalendarInviteUrl(eventId)}>Download calendar invite (.ics)</a>
+              </p>
+              <img src={resources.qrCodeDataUri} alt="QR code for the registration link" className="registration-qr" />
+            </>
+          )}
+        </div>
       )}
     </Modal>
   );

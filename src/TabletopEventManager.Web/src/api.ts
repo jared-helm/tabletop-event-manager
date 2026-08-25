@@ -61,6 +61,7 @@ export type EventDetail = EventSummary & {
   gameCode: string;
   configurationSelections: EventConfigurationSelection[];
 };
+export type RegistrationResources = { registrationUrl: string; qrCodeDataUri: string };
 
 export function getHealth(): Promise<HealthResponse> {
   return apiRequest<HealthResponse>('/health');
@@ -95,4 +96,12 @@ export async function deleteEvent(eventId: number): Promise<void> {
     const body = await response.json().catch(() => null) as { error?: string } | null;
     throw new Error(body?.error ?? `API request failed with status ${response.status}`);
   }
+}
+
+export function getRegistrationResources(eventId: number): Promise<RegistrationResources> {
+  return apiRequest<RegistrationResources>(`/api/events/${eventId}/registration-resources`);
+}
+
+export function getCalendarInviteUrl(eventId: number): string {
+  return `${apiBaseUrl}/api/events/${eventId}/calendar-invite`;
 }

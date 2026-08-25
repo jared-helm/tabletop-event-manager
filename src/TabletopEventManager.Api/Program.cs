@@ -1,6 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Globalization;
+using System.Text;
+using Ical.Net;
+using Ical.Net.CalendarComponents;
+using Ical.Net.DataTypes;
+using Ical.Net.Serialization;
+using QRCoder;
+using IcsCalendar = Ical.Net.Calendar;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,6 +89,49 @@ app.MapDelete("/api/events/{eventId:long}", async (long eventId, TabletopEventMa
 {
     var deleted = await repository.DeleteEventAsync(eventId, cancellationToken);
     return deleted ? Results.NoContent() : Results.NotFound();
+});
+
+app.MapGet("/api/events/{eventId:long}/registration-resources", async (long eventId, TabletopEventManager.Api.EventRepository repository, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+    var detail = await repository.GetEventDetailAsync(eventId, cancellationToken);
+    if (detail is null)
+    {
+        return Results.NotFound();
+    }
+
+    var frontendOrigin = (configuration["Frontend:Origin"] ?? "http://localhost:5173").TrimEnd('/');
+    var registrationUrl = $"{frontendOrigin}/registration/{detail.RegistrationSlug}";
+
+    using var qrGenerator = new QRCodeGenerator();
+    using var qrCodeData = qrGenerator.CreateQrCode(registrationUrl, QRCodeGenerator.ECCLevel.Q);
+    var qrCodePng = new PngByteQRCode(qrCodeData).GetGraphic(10);
+
+    return Results.Ok(new
+    {
+        registrationUrl,
+        qrCodeDataUri = $"data:image/png;base64,{Convert.ToBase64String(qrCodePng)}",
+    });
+});
+
+app.MapGet("/api/events/{eventId:long}/calendar-invite", async (long eventId, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
+{
+    var detail = await repository.GetEventDetailAsync(eventId, cancellationToken);
+    if (detail is null)
+    {
+        return Results.NotFound();
+    }
+
+    var calendar = new IcsCalendar();
+    calendar.Events.Add(new CalendarEvent
+    {
+        Summary = detail.Name,
+        Start = new CalDateTime(detail.StartAtUtc.UtcDateTime, "UTC"),
+        End = new CalDateTime(detail.EndAtUtc.UtcDateTime, "UTC"),
+        Location = detail.Location,
+    });
+
+    var icsBytes = Encoding.UTF8.GetBytes(new CalendarSerializer().SerializeToString(calendar));
+    return Results.File(icsBytes, "text/calendar", $"{detail.RegistrationSlug}.ics");
 });
 
 app.Run();
