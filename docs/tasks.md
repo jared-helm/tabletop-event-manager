@@ -102,7 +102,7 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Create Modal and API
 
-- [x] Implement the create-event modal with outside-click and X-button close behavior.
+- [x] Implement the create-event modal with X-button close behavior and a non-dismissible backdrop.
 - [x] Add accessible focus handling and keyboard behavior.
 - [x] Render event fields and dynamic template controls.
 - [x] Support `SELECT` and `CHECKBOX_GROUP` controls.

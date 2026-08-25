@@ -33,8 +33,10 @@ Clicking `Create event` opens the create-event form in a modal.
 
 - The modal opens over the calendar without navigating away from the page.
 - An `X` button closes the modal.
-- Clicking outside the modal closes it.
-- Closing the modal without submitting discards unsaved values.
+- Clicking outside the modal does not close it.
+- Pressing Escape or clicking the X button attempts to close the modal.
+- If the form has unsaved changes, closing prompts the user to confirm before discarding them.
+- Closing an unchanged modal without submitting discards its values.
 - The modal should provide a clear accessible title and focus should move into the modal when it opens.
 
 ### Event Details Form
@@ -98,7 +100,8 @@ Clicking an event on the calendar opens a modal for that event.
 ### Modal Behavior
 
 - The modal contains an `X` button.
-- Clicking outside the modal closes it.
+- Clicking outside the modal does not close it.
+- Pressing Escape or clicking the X button attempts to close it.
 - The modal has tabs across the top.
 - The modal opens on the Event Details tab by default.
 - The event properties are read-only after creation in v1.

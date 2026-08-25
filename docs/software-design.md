@@ -144,7 +144,7 @@ All three games seed both `CASUAL` and `TOURNAMENT` as allowed play types, plus 
 6. The API repeats validation, resolves template defaults, snapshots duration and configuration selections, creates the event, and returns it.
 7. The modal closes and the month calendar refreshes without a full page reload.
 
-Clicking outside the modal or its X button closes it and discards unsaved values.
+Clicking outside the modal does not close it. The X button and Escape attempt to close it; if the form has unsaved changes, the organizer must confirm before those changes are discarded.
 
 ### View an event
 
