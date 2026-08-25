@@ -26,3 +26,25 @@ Verify the service is running:
 - Health endpoint: http://localhost:5080/health
 
 The health endpoint returns the service status and a UTC timestamp. Docker Compose startup instructions will be added when the frontend and container setup are implemented.
+
+## Frontend Development
+
+The React frontend is located in `src/TabletopEventManager.Web` and uses Vite.
+
+From the repository root:
+
+```powershell
+cd .\src\TabletopEventManager.Web
+cmd /c npm install
+cmd /c npm run dev
+```
+
+The frontend starts at `http://localhost:5173` and proxies `/api` requests to the API at `http://localhost:5080`.
+
+The frontend production build can be verified with:
+
+```powershell
+cmd /c npm run build
+```
+
+The frontend smoke-test setup is included with Vitest and Testing Library.

@@ -1,0 +1,26 @@
+:root {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #17201d;
+  background: #f3efe7;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, a { font: inherit; }
+button { cursor: pointer; }
+nav { display: flex; gap: 1rem; padding: 1rem 5vw; border-bottom: 1px solid #d7d0c4; background: #fffdf9; }
+nav a { color: #225b50; }
+main { width: min(1100px, 90vw); margin: 0 auto; padding: 4rem 0; }
+.page-header { display: flex; justify-content: space-between; align-items: end; gap: 2rem; }
+.eyebrow { margin: 0 0 .5rem; color: #a34b2f; font: 700 .75rem/1.2 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+h1 { margin: 0; font-size: clamp(2.25rem, 6vw, 4.5rem); font-weight: 400; }
+button { border: 0; border-radius: 4px; padding: .75rem 1rem; color: #fffdf9; background: #225b50; }
+.calendar-placeholder { display: grid; place-items: center; min-height: 420px; margin-top: 2rem; border: 1px solid #d7d0c4; background: #fffdf9; }
+.modal-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(23 32 29 / 55%); }
+.modal { width: min(560px, 100%); padding: 1.5rem; background: #fffdf9; box-shadow: 0 1rem 3rem rgb(23 32 29 / 25%); }
+.modal header { display: flex; justify-content: space-between; align-items: center; }
+.modal h2 { margin-top: 0; }
+.modal header button { padding: .35rem .6rem; background: #a34b2f; }
+[role='tablist'] { display: flex; gap: .5rem; margin: 1rem 0; }
+[role='tab'][aria-selected='true'] { background: #a34b2f; }

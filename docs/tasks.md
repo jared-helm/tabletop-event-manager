@@ -18,12 +18,12 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Frontend Boilerplate
 
-- [ ] Create the React application and source structure.
-- [ ] Add client-side routing for the calendar and registration page.
-- [ ] Add an API client with a configurable API base URL.
-- [ ] Add shared loading, error, modal, tab, and form primitives.
-- [ ] Add date/time helpers that convert API UTC timestamps to browser-local display values.
-- [ ] Add a basic frontend test setup and one render smoke test.
+- [x] Create the React application and source structure.
+- [x] Add client-side routing for the calendar and registration page.
+- [x] Add an API client with a configurable API base URL.
+- [x] Add shared loading, error, modal, tab, and form primitives.
+- [x] Add date/time helpers that convert API UTC timestamps to browser-local display values.
+- [x] Add a basic frontend test setup and one render smoke test.
 
 **Acceptance:** The frontend builds, starts, can call the API, and renders a placeholder calendar route.
 
