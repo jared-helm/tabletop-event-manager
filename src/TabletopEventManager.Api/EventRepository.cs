@@ -20,7 +20,7 @@ public sealed class EventRepository
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, code, display_name FROM GAME WHERE is_active = 1 ORDER BY display_name";
+        command.CommandText = "SELECT Id, Code, DisplayName FROM Game WHERE IsActive = 1 ORDER BY DisplayName";
 
         var games = new List<GameSummary>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -51,7 +51,7 @@ public sealed class EventRepository
         string? gameName;
         await using (var gameCommand = connection.CreateCommand())
         {
-            gameCommand.CommandText = "SELECT display_name FROM GAME WHERE id = $gameId AND is_active = 1";
+            gameCommand.CommandText = "SELECT DisplayName FROM Game WHERE Id = $gameId AND IsActive = 1";
             gameCommand.Parameters.AddWithValue("$gameId", gameId);
             gameName = (string?)await gameCommand.ExecuteScalarAsync(cancellationToken);
         }
@@ -79,10 +79,10 @@ public sealed class EventRepository
         {
             command.Transaction = transaction;
             command.CommandText = """
-                SELECT id, key, label, data_type, ui_control, default_value, is_required, sort_order
-                FROM GAME_CONFIGURATION_OPTION
-                WHERE game_id = $gameId AND is_active = 1
-                ORDER BY sort_order, id
+                SELECT Id, Key, Label, DataType, UiControl, DefaultValue, IsRequired, SortOrder
+                FROM GameConfigurationOption
+                WHERE GameId = $gameId AND IsActive = 1
+                ORDER BY SortOrder, Id
                 """;
             command.Parameters.AddWithValue("$gameId", gameId);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -100,10 +100,10 @@ public sealed class EventRepository
             await using var valueCommand = connection.CreateCommand();
             valueCommand.Transaction = transaction;
             valueCommand.CommandText = """
-                SELECT id, value, label, sort_order
-                FROM GAME_CONFIGURATION_OPTION_VALUE
-                WHERE option_id = $optionId AND is_active = 1
-                ORDER BY sort_order, id
+                SELECT Id, Value, Label, SortOrder
+                FROM GameConfigurationOptionValue
+                WHERE OptionId = $optionId AND IsActive = 1
+                ORDER BY SortOrder, Id
                 """;
             valueCommand.Parameters.AddWithValue("$optionId", options[index].Id);
             var values = new List<GameConfigurationValueResponse>();
@@ -124,15 +124,15 @@ public sealed class EventRepository
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT e.id, e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.location,
-                   e.play_type, e.tournament_format, e.registration_slug, g.display_name,
-                   (SELECT COUNT(*) FROM EVENT_REGISTRATION r WHERE r.event_id = e.id)
-            FROM EVENT e
-            INNER JOIN GAME g ON g.id = e.game_id
-            WHERE e.deleted_at_utc IS NULL
-              AND e.start_at_utc >= $startUtc
-              AND e.start_at_utc < $endUtc
-            ORDER BY e.start_at_utc, e.name
+                        SELECT e.Id, e.Name, e.StartAtUtc, e.DurationMinutes, e.Capacity, e.Location,
+                                     e.PlayType, e.TournamentFormat, e.RegistrationSlug, g.DisplayName,
+                                     (SELECT COUNT(*) FROM EventRegistration r WHERE r.EventId = e.Id)
+                        FROM Event e
+                        INNER JOIN Game g ON g.Id = e.GameId
+                        WHERE e.DeletedAtUtc IS NULL
+                            AND e.StartAtUtc >= $startUtc
+                            AND e.StartAtUtc < $endUtc
+                        ORDER BY e.StartAtUtc, e.Name
             """;
         command.Parameters.AddWithValue("$startUtc", start.ToString("O"));
         command.Parameters.AddWithValue("$endUtc", end.ToString("O"));
@@ -159,12 +159,12 @@ public sealed class EventRepository
         await using (var command = connection.CreateCommand())
         {
             command.CommandText = """
-                SELECT e.id, e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.location,
-                       e.play_type, e.tournament_format, e.registration_slug, g.display_name, g.code,
-                       (SELECT COUNT(*) FROM EVENT_REGISTRATION r WHERE r.event_id = e.id)
-                FROM EVENT e
-                INNER JOIN GAME g ON g.id = e.game_id
-                WHERE e.id = $eventId AND e.deleted_at_utc IS NULL
+                  SELECT e.Id, e.Name, e.StartAtUtc, e.DurationMinutes, e.Capacity, e.Location,
+                      e.PlayType, e.TournamentFormat, e.RegistrationSlug, g.DisplayName, g.Code,
+                      (SELECT COUNT(*) FROM EventRegistration r WHERE r.EventId = e.Id)
+                  FROM Event e
+                  INNER JOIN Game g ON g.Id = e.GameId
+                  WHERE e.Id = $eventId AND e.DeletedAtUtc IS NULL
                 """;
             command.Parameters.AddWithValue("$eventId", eventId);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -188,11 +188,11 @@ public sealed class EventRepository
         await using (var selectionCommand = connection.CreateCommand())
         {
             selectionCommand.CommandText = """
-                SELECT option.key, option.label, selection.selected_value
-                FROM EVENT_CONFIGURATION_SELECTION selection
-                INNER JOIN GAME_CONFIGURATION_OPTION option ON option.id = selection.option_id
-                WHERE selection.event_id = $eventId
-                ORDER BY option.sort_order, selection.selected_value
+                SELECT option.Key, option.Label, selection.SelectedValue
+                FROM EventConfigurationSelection selection
+                INNER JOIN GameConfigurationOption option ON option.Id = selection.OptionId
+                WHERE selection.EventId = $eventId
+                ORDER BY option.SortOrder, selection.SelectedValue
                 """;
             selectionCommand.Parameters.AddWithValue("$eventId", eventId);
             await using var reader = await selectionCommand.ExecuteReaderAsync(cancellationToken);
@@ -219,7 +219,7 @@ public sealed class EventRepository
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE EVENT SET deleted_at_utc = $deletedAtUtc WHERE id = $eventId AND deleted_at_utc IS NULL";
+        command.CommandText = "UPDATE Event SET DeletedAtUtc = $deletedAtUtc WHERE Id = $eventId AND DeletedAtUtc IS NULL";
         command.Parameters.AddWithValue("$deletedAtUtc", DateTimeOffset.UtcNow.ToString("O"));
         command.Parameters.AddWithValue("$eventId", eventId);
         var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
@@ -234,11 +234,11 @@ public sealed class EventRepository
         await using var eventCommand = connection.CreateCommand();
         eventCommand.Transaction = transaction;
         eventCommand.CommandText = """
-            INSERT INTO EVENT (game_id, name, start_at_utc, duration_minutes, capacity, location,
-                               play_type, tournament_format, registration_slug, created_at_utc)
+            INSERT INTO Event (GameId, Name, StartAtUtc, DurationMinutes, Capacity, Location,
+                               PlayType, TournamentFormat, RegistrationSlug, CreatedAtUtc)
             VALUES ($gameId, $name, $startAtUtc, $duration, $capacity, $location,
                     $playType, $tournamentFormat, $slug, $createdAtUtc)
-            RETURNING id
+            RETURNING Id
             """;
         eventCommand.Parameters.AddWithValue("$gameId", row.GameId);
         eventCommand.Parameters.AddWithValue("$name", row.Name);
@@ -256,7 +256,7 @@ public sealed class EventRepository
         {
             await using var selectionCommand = connection.CreateCommand();
             selectionCommand.Transaction = transaction;
-            selectionCommand.CommandText = "INSERT INTO EVENT_CONFIGURATION_SELECTION (event_id, option_id, selected_value) VALUES ($eventId, $optionId, $value)";
+            selectionCommand.CommandText = "INSERT INTO EventConfigurationSelection (EventId, OptionId, SelectedValue) VALUES ($eventId, $optionId, $value)";
             selectionCommand.Parameters.AddWithValue("$eventId", eventId);
             selectionCommand.Parameters.AddWithValue("$optionId", optionId);
             selectionCommand.Parameters.AddWithValue("$value", value);
@@ -272,10 +272,10 @@ public sealed class EventRepository
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT first_name, last_name, player_tag
-            FROM EVENT_REGISTRATION
-            WHERE event_id = $eventId
-            ORDER BY registered_at_utc
+            SELECT FirstName, LastName, PlayerTag
+            FROM EventRegistration
+            WHERE EventId = $eventId
+            ORDER BY RegisteredAtUtc
             """;
         command.Parameters.AddWithValue("$eventId", eventId);
 
@@ -294,11 +294,11 @@ public sealed class EventRepository
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.location, g.display_name,
-                   (SELECT COUNT(*) FROM EVENT_REGISTRATION r WHERE r.event_id = e.id)
-            FROM EVENT e
-            INNER JOIN GAME g ON g.id = e.game_id
-            WHERE e.registration_slug = $slug AND e.deleted_at_utc IS NULL
+                 SELECT e.Name, e.StartAtUtc, e.DurationMinutes, e.Capacity, e.Location, g.DisplayName,
+                     (SELECT COUNT(*) FROM EventRegistration r WHERE r.EventId = e.Id)
+                 FROM Event e
+                 INNER JOIN Game g ON g.Id = e.GameId
+                 WHERE e.RegistrationSlug = $slug AND e.DeletedAtUtc IS NULL
             """;
         command.Parameters.AddWithValue("$slug", slug);
 
@@ -317,7 +317,7 @@ public sealed class EventRepository
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id FROM EVENT WHERE registration_slug = $slug AND deleted_at_utc IS NULL";
+        command.CommandText = "SELECT Id FROM Event WHERE RegistrationSlug = $slug AND DeletedAtUtc IS NULL";
         command.Parameters.AddWithValue("$slug", slug);
         return (long?)await command.ExecuteScalarAsync(cancellationToken);
     }
@@ -360,10 +360,10 @@ public sealed class RegistrationUnitOfWork : IAsyncDisposable
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            SELECT e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.deleted_at_utc, g.display_name
-            FROM EVENT e
-            INNER JOIN GAME g ON g.id = e.game_id
-            WHERE e.id = $eventId
+            SELECT e.Name, e.StartAtUtc, e.DurationMinutes, e.Capacity, e.DeletedAtUtc, g.DisplayName
+            FROM Event e
+            INNER JOIN Game g ON g.Id = e.GameId
+            WHERE e.Id = $eventId
             """;
         command.Parameters.AddWithValue("$eventId", eventId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -382,11 +382,11 @@ public sealed class RegistrationUnitOfWork : IAsyncDisposable
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            SELECT COUNT(*) FROM EVENT_REGISTRATION
-            WHERE event_id = $eventId
+                        SELECT COUNT(*) FROM EventRegistration
+                        WHERE EventId = $eventId
               AND (
-                (lower(trim(first_name)) = lower($firstName) AND lower(trim(last_name)) = lower($lastName))
-                OR ($playerTag IS NOT NULL AND lower(trim(player_tag)) = lower($playerTag))
+                                (lower(trim(FirstName)) = lower($firstName) AND lower(trim(LastName)) = lower($lastName))
+                                OR ($playerTag IS NOT NULL AND lower(trim(PlayerTag)) = lower($playerTag))
               )
             """;
         command.Parameters.AddWithValue("$eventId", eventId);
@@ -401,7 +401,7 @@ public sealed class RegistrationUnitOfWork : IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = "SELECT COUNT(*) FROM EVENT_REGISTRATION WHERE event_id = $eventId";
+        command.CommandText = "SELECT COUNT(*) FROM EventRegistration WHERE EventId = $eventId";
         command.Parameters.AddWithValue("$eventId", eventId);
         return (long)(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
     }
@@ -411,7 +411,7 @@ public sealed class RegistrationUnitOfWork : IAsyncDisposable
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            INSERT INTO EVENT_REGISTRATION (event_id, first_name, last_name, player_tag, registered_at_utc)
+            INSERT INTO EventRegistration (EventId, FirstName, LastName, PlayerTag, RegisteredAtUtc)
             VALUES ($eventId, $firstName, $lastName, $playerTag, $registeredAtUtc)
             """;
         command.Parameters.AddWithValue("$eventId", eventId);

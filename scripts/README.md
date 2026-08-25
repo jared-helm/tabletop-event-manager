@@ -12,9 +12,9 @@ Template creation and editing are out of scope for v1. The application should ru
 
 The script targets the tables described in [docs/er-diagram.md](../docs/er-diagram.md):
 
-- `GAME`
-- `GAME_CONFIGURATION_OPTION`
-- `GAME_CONFIGURATION_OPTION_VALUE`
+- `Game`
+- `GameConfigurationOption`
+- `GameConfigurationOptionValue`
 
 It assumes those tables have already been created and that their identifiers are integer primary keys. The script is safe to run more than once because it uses `INSERT OR IGNORE` and stable natural keys.
 

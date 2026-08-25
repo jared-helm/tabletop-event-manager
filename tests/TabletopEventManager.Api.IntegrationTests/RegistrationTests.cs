@@ -48,9 +48,9 @@ public sealed class RegistrationTests : IClassFixture<CustomWebApplicationFactor
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO EVENT (game_id, name, start_at_utc, duration_minutes, capacity, play_type, tournament_format, registration_slug, created_at_utc)
-            SELECT id, 'Capacity One Event', $startAtUtc, 60, 1, 'CASUAL', NULL, $slug, $createdAtUtc
-            FROM GAME WHERE code = 'mtg'
+            INSERT INTO Event (GameId, Name, StartAtUtc, DurationMinutes, Capacity, PlayType, TournamentFormat, RegistrationSlug, CreatedAtUtc)
+            SELECT Id, 'Capacity One Event', $startAtUtc, 60, 1, 'CASUAL', NULL, $slug, $createdAtUtc
+            FROM Game WHERE Code = 'mtg'
             """;
         command.Parameters.AddWithValue("$startAtUtc", DateTimeOffset.UtcNow.AddDays(2).ToString("O"));
         command.Parameters.AddWithValue("$slug", slug);

@@ -4,75 +4,75 @@ This ER diagram models event scheduling, template-driven game configuration, and
 
 ```mermaid
 erDiagram
-    GAME {
-        int id PK
-        string code UK
-        string display_name
-        bool is_active
-        datetime created_at_utc
+    Game {
+        int Id PK
+        string Code UK
+        string DisplayName
+        bool IsActive
+        datetime CreatedAtUtc
     }
 
-    EVENT {
-        int id PK
-        int game_id FK
-        string name
-        datetime start_at_utc
-        int duration_minutes
-        int capacity
-        string location
-        string play_type "CASUAL|TOURNAMENT"
-        string tournament_format "SWISS_TOP_CUT|DOUBLE_ELIMINATION|NULL"
-        string registration_slug UK
-        datetime created_at_utc
-        datetime deleted_at_utc "NULL"
+    Event {
+        int Id PK
+        int GameId FK
+        string Name
+        datetime StartAtUtc
+        int DurationMinutes
+        int Capacity
+        string Location
+        string PlayType "CASUAL|TOURNAMENT"
+        string TournamentFormat "SWISS_TOP_CUT|DOUBLE_ELIMINATION|NULL"
+        string RegistrationSlug UK
+        datetime CreatedAtUtc
+        datetime DeletedAtUtc "NULL"
     }
 
-    GAME_CONFIGURATION_OPTION {
-        int id PK
-        int game_id FK
-        string key
-        string label
-        string data_type "STRING|NUMBER|BOOLEAN|ENUM"
-        string ui_control "TEXT|NUMBER|TOGGLE|SELECT|CHECKBOX_GROUP"
-        string default_value "NULL"
-        bool is_required
-        int sort_order
-        bool is_active
+    GameConfigurationOption {
+        int Id PK
+        int GameId FK
+        string Key
+        string Label
+        string DataType "STRING|NUMBER|BOOLEAN|ENUM"
+        string UiControl "TEXT|NUMBER|TOGGLE|SELECT|CHECKBOX_GROUP"
+        string DefaultValue "NULL"
+        bool IsRequired
+        int SortOrder
+        bool IsActive
     }
 
-    GAME_CONFIGURATION_OPTION_VALUE {
-        int id PK
-        int option_id FK
-        string value
-        string label
-        int sort_order
-        bool is_active
+    GameConfigurationOptionValue {
+        int Id PK
+        int OptionId FK
+        string Value
+        string Label
+        int SortOrder
+        bool IsActive
     }
 
-    EVENT_CONFIGURATION_SELECTION {
-        int id PK
-        int event_id FK
-        int option_id FK
-        string selected_value
+    EventConfigurationSelection {
+        int Id PK
+        int EventId FK
+        int OptionId FK
+        string SelectedValue
     }
 
-    EVENT_REGISTRATION {
-        int id PK
-        int event_id FK
-        string first_name
-        string last_name
-        string player_tag "NULL"
-        datetime registered_at_utc
+    EventRegistration {
+        int Id PK
+        int EventId FK
+        string FirstName
+        string LastName
+        string PlayerTag "NULL"
+        datetime RegisteredAtUtc
     }
 
-    GAME ||--o{ EVENT : "has many"
-    GAME ||--o{ GAME_CONFIGURATION_OPTION : "defines"
-    GAME_CONFIGURATION_OPTION ||--o{ GAME_CONFIGURATION_OPTION_VALUE : "allows"
+    Game ||--o{ Event : "has many"
+    Game ||--o{ GameConfigurationOption : "defines"
+    GameConfigurationOption ||--o{ GameConfigurationOptionValue : "allows"
 
-    EVENT ||--o{ EVENT_CONFIGURATION_SELECTION : "stores"
-    GAME_CONFIGURATION_OPTION ||--o{ EVENT_CONFIGURATION_SELECTION : "selected as"
+    Event ||--o{ EventConfigurationSelection : "stores"
+    GameConfigurationOption ||--o{ EventConfigurationSelection : "selected as"
 
-    EVENT ||--o{ EVENT_REGISTRATION : "accepts"
+    Event ||--o{ EventRegistration : "accepts"
 ```
 
 ## Notes

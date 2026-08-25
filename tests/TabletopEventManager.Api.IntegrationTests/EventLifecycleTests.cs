@@ -60,7 +60,7 @@ public sealed class EventLifecycleTests : IClassFixture<CustomWebApplicationFact
         await using var connection = new SqliteConnection($"Data Source={factory.DatabasePath}");
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT deleted_at_utc FROM EVENT WHERE id = $id";
+        command.CommandText = "SELECT DeletedAtUtc FROM Event WHERE Id = $id";
         command.Parameters.AddWithValue("$id", created.Id);
         var deletedAtUtc = await command.ExecuteScalarAsync();
 
