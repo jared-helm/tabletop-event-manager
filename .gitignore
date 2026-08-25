@@ -1,0 +1,74 @@
+## User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio cache/options
+.vs/
+
+## Visual Studio Code workspace settings
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+## NuGet packages and generated assets
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+project.assets.json
+project.nuget.cache
+artifacts/
+
+## Test results and coverage
+TestResults/
+*.trx
+coverage/
+coverage-report/
+
+## Local databases and runtime data
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/data/
+
+## Docker overrides and local environment files
+docker-compose.override.yml
+.env
+.env.*
+!.env.example
+
+## Node.js and frontend build output
+node_modules/
+dist/
+.vite/
+.cache/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+
+## JavaScript package-manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+## Frontend test and tool caches
+.eslintcache
+playwright-report/
+test-results/
+
+## OS-generated files
+.DS_Store
+Thumbs.db

@@ -2,25 +2,17 @@
 
 This checklist turns [the software design](software-design.md) into an implementation sequence. Tasks should be completed in order unless a task is explicitly marked as parallelizable.
 
-## Delivery Rules
-
-- Build the API, frontend, and Docker Compose boilerplate first.
-- Set up the SQLite schema and seeded game templates before implementing event flows.
-- Build the product page by page, starting with the calendar.
-- Do not seed sample events. The database starts with game templates only; events are created through the UI/API.
-- Keep tournament execution, template management, event editing, authentication, and other documented v1 cuts out of the implementation.
-
 ## Phase 1: Project Foundation
 
 ### API Boilerplate
 
-- [ ] Create the C# API project and solution structure.
-- [ ] Add configuration for SQLite and the database connection.
-- [ ] Add health-check or root endpoint for local verification.
-- [ ] Configure JSON serialization for ISO 8601 UTC timestamps.
-- [ ] Configure CORS for the React development origin.
-- [ ] Add API-level error handling and consistent validation-error responses.
-- [ ] Add a basic test project and one smoke test.
+- [x] Create the C# API project and solution structure.
+- [x] Add configuration for SQLite and the database connection.
+- [x] Add health-check or root endpoint for local verification.
+- [x] Configure JSON serialization for ISO 8601 UTC timestamps.
+- [x] Configure CORS for the React development origin.
+- [x] Add API-level error handling and consistent validation-error responses.
+- [x] Add a basic test project and one smoke test.
 
 **Acceptance:** The API builds, starts locally, responds to a health request, and has no dependency on a hosted service.
 
