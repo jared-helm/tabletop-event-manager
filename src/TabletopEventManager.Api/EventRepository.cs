@@ -112,6 +112,81 @@ public sealed class EventRepository
         return events;
     }
 
+    public async Task<EventDetail?> GetEventDetailAsync(long eventId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        EventDetail? detail = null;
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT e.id, e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.location,
+                       e.play_type, e.tournament_format, e.registration_slug, g.display_name, g.code,
+                       (SELECT COUNT(*) FROM EVENT_REGISTRATION r WHERE r.event_id = e.id)
+                FROM EVENT e
+                INNER JOIN GAME g ON g.id = e.game_id
+                WHERE e.id = $eventId AND e.deleted_at_utc IS NULL
+                """;
+            command.Parameters.AddWithValue("$eventId", eventId);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                var startAtUtc = DateTimeOffset.Parse(reader.GetString(2));
+                detail = new EventDetail(
+                    reader.GetInt64(0), reader.GetString(1), startAtUtc, reader.GetInt32(3), reader.GetInt32(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetString(7), reader.GetString(8), reader.GetString(9),
+                    reader.GetInt64(11), reader.GetString(10), []);
+            }
+        }
+
+        if (detail is null)
+        {
+            return null;
+        }
+
+        var selections = new Dictionary<string, (string Label, List<string> Values)>();
+        await using (var selectionCommand = connection.CreateCommand())
+        {
+            selectionCommand.CommandText = """
+                SELECT option.key, option.label, selection.selected_value
+                FROM EVENT_CONFIGURATION_SELECTION selection
+                INNER JOIN GAME_CONFIGURATION_OPTION option ON option.id = selection.option_id
+                WHERE selection.event_id = $eventId
+                ORDER BY option.sort_order, selection.selected_value
+                """;
+            selectionCommand.Parameters.AddWithValue("$eventId", eventId);
+            await using var reader = await selectionCommand.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var key = reader.GetString(0);
+                if (!selections.TryGetValue(key, out var entry))
+                {
+                    entry = (reader.GetString(1), []);
+                    selections[key] = entry;
+                }
+
+                entry.Values.Add(reader.GetString(2));
+            }
+        }
+
+        var configurationSelections = selections
+            .Select(pair => new EventConfigurationSelectionResponse(pair.Key, pair.Value.Label, pair.Value.Values))
+            .ToList();
+        return detail with { ConfigurationSelections = configurationSelections };
+    }
+
+    public async Task<bool> DeleteEventAsync(long eventId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE EVENT SET deleted_at_utc = $deletedAtUtc WHERE id = $eventId AND deleted_at_utc IS NULL";
+        command.Parameters.AddWithValue("$deletedAtUtc", DateTimeOffset.UtcNow.ToString("O"));
+        command.Parameters.AddWithValue("$eventId", eventId);
+        var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
+        return rowsAffected > 0;
+    }
+
     public async Task<CreateEventResult> CreateEventAsync(CreateEventRequest request, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -259,6 +334,11 @@ public sealed record GameConfigurationResponse(long GameId, IReadOnlyList<GameCo
 public sealed record GameConfigurationOptionResponse(long Id, string Key, string Label, string DataType, string UiControl, string? DefaultValue, bool IsRequired, int SortOrder, IReadOnlyList<GameConfigurationValueResponse> Values);
 public sealed record GameConfigurationValueResponse(long Id, string Value, string Label, int SortOrder);
 public sealed record EventSummary(long Id, string Name, DateTimeOffset StartAtUtc, int DurationMinutes, int Capacity, string? Location, string PlayType, string? TournamentFormat, string RegistrationSlug, string GameName, long RegistrationCount)
+{
+    public DateTimeOffset EndAtUtc => StartAtUtc.AddMinutes(DurationMinutes);
+}
+public sealed record EventConfigurationSelectionResponse(string Key, string Label, IReadOnlyList<string> Values);
+public sealed record EventDetail(long Id, string Name, DateTimeOffset StartAtUtc, int DurationMinutes, int Capacity, string? Location, string PlayType, string? TournamentFormat, string RegistrationSlug, string GameName, long RegistrationCount, string GameCode, IReadOnlyList<EventConfigurationSelectionResponse> ConfigurationSelections)
 {
     public DateTimeOffset EndAtUtc => StartAtUtc.AddMinutes(DurationMinutes);
 }

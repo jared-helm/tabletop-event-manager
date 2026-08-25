@@ -122,22 +122,22 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Event Details Modal
 
-- [ ] Implement `GET /api/events/{eventId}`.
-- [ ] Open the event modal by clicking a calendar event.
-- [ ] Add Event Details, Players, and Registration Resources tabs.
-- [ ] Keep all event properties read-only after creation.
-- [ ] Display calculated local start and end times.
-- [ ] Add accessible tab and modal keyboard behavior.
+- [x] Implement `GET /api/events/{eventId}`.
+- [x] Open the event modal by clicking a calendar event.
+- [x] Add Event Details, Players, and Registration Resources tabs.
+- [x] Keep all event properties read-only after creation.
+- [x] Display calculated local start and end times.
+- [x] Add accessible tab and modal keyboard behavior.
 
 ### Soft Deletion
 
-- [ ] Implement `DELETE /api/events/{eventId}` as a soft delete.
-- [ ] Require a confirmation step in the UI.
-- [ ] Allow deletion even when registrations exist.
-- [ ] Set `deleted_at_utc` and retain registrations/configuration selections.
-- [ ] Remove the event from active calendar results after deletion.
+- [x] Implement `DELETE /api/events/{eventId}` as a soft delete.
+- [x] Require a confirmation step in the UI.
+- [x] Allow deletion even when registrations exist.
+- [x] Set `deleted_at_utc` and retain registrations/configuration selections.
+- [x] Remove the event from active calendar results after deletion.
 - [ ] Return an unavailable-event response for deleted registration pages/resources.
-- [ ] Leave the data model compatible with future undeletion.
+- [x] Leave the data model compatible with future undeletion.
 
 **Acceptance:** Deleting an event removes it from active views but preserves its database row and registrations.
 

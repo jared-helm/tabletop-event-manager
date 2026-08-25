@@ -56,6 +56,11 @@ export type CreateEventRequest = {
   tournamentFormat: string;
   configurationSelections: Record<string, string[]>;
 };
+export type EventConfigurationSelection = { key: string; label: string; values: string[] };
+export type EventDetail = EventSummary & {
+  gameCode: string;
+  configurationSelections: EventConfigurationSelection[];
+};
 
 export function getHealth(): Promise<HealthResponse> {
   return apiRequest<HealthResponse>('/health');
@@ -78,4 +83,16 @@ export function createEvent(request: CreateEventRequest): Promise<EventSummary> 
     method: 'POST',
     body: JSON.stringify(request),
   });
+}
+
+export function getEventDetail(eventId: number): Promise<EventDetail> {
+  return apiRequest<EventDetail>(`/api/events/${eventId}`);
+}
+
+export async function deleteEvent(eventId: number): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/events/${eventId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(body?.error ?? `API request failed with status ${response.status}`);
+  }
 }

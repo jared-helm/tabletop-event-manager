@@ -72,6 +72,18 @@ app.MapPost("/api/events", async (TabletopEventManager.Api.CreateEventRequest re
     return result.IsSuccess ? Results.Created($"/api/events/{result.Event!.Id}", result.Event) : Results.BadRequest(new { error = result.Error });
 });
 
+app.MapGet("/api/events/{eventId:long}", async (long eventId, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
+{
+    var detail = await repository.GetEventDetailAsync(eventId, cancellationToken);
+    return detail is null ? Results.NotFound() : Results.Ok(detail);
+});
+
+app.MapDelete("/api/events/{eventId:long}", async (long eventId, TabletopEventManager.Api.EventRepository repository, CancellationToken cancellationToken) =>
+{
+    var deleted = await repository.DeleteEventAsync(eventId, cancellationToken);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
+
 app.Run();
 
 public partial class Program;

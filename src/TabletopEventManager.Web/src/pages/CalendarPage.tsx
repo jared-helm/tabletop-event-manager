@@ -3,11 +3,13 @@ import { ErrorState, LoadingState } from '../components';
 import { formatDateTimeLocal, formatLocalTime, localDateKey, toUtcIso } from '../dateTime';
 import { getEvents, type EventSummary } from '../api';
 import { CreateEventModal } from './CreateEventModal';
+import { EventModal } from './EventModal';
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function CalendarPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [error, setError] = useState<Error | null>(null);
@@ -72,7 +74,13 @@ export function CalendarPage() {
               <div className={`calendar-day ${date.getMonth() !== month.getMonth() ? 'outside-month' : ''}`} key={date.toISOString()}>
                 <time dateTime={date.toISOString()}>{date.getDate()}</time>
                 {(eventsByDay.get(key) ?? []).map((event) => (
-                  <button className="calendar-event" title={`${formatLocalTime(event.startAtUtc)} - ${event.name}`} type="button" key={event.id}>
+                  <button
+                    className="calendar-event"
+                    title={`${formatLocalTime(event.startAtUtc)} - ${event.name}`}
+                    type="button"
+                    key={event.id}
+                    onClick={() => setSelectedEventId(event.id)}
+                  >
                     <span>{formatLocalTime(event.startAtUtc)}</span> {event.name}
                   </button>
                 ))}
@@ -85,6 +93,13 @@ export function CalendarPage() {
         <CreateEventModal
           onClose={() => setCreateOpen(false)}
           onCreated={() => { setCreateOpen(false); loadEvents(); }}
+        />
+      )}
+      {selectedEventId !== null && (
+        <EventModal
+          eventId={selectedEventId}
+          onClose={() => setSelectedEventId(null)}
+          onDeleted={() => { setSelectedEventId(null); loadEvents(); }}
         />
       )}
     </main>
