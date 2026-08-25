@@ -71,6 +71,31 @@ public sealed class EventCreationTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task CreateEvent_WithDurationOverride_UsesRequestedDuration()
+    {
+        var gameId = await GetGameIdAsync("mtg");
+        var request = new
+        {
+            name = "Custom Duration Event",
+            gameId,
+            startAtUtc = DateTimeOffset.UtcNow.AddDays(1),
+            capacity = 8,
+            durationMinutes = 75,
+            playType = "CASUAL",
+            tournamentFormat = "",
+            configurationSelections = new Dictionary<string, string[]> { ["event_format"] = ["STANDARD"] },
+        };
+
+        var response = await client.PostAsJsonAsync("/api/events", request);
+        response.EnsureSuccessStatusCode();
+
+        var created = await response.Content.ReadFromJsonAsync<EventSummary>();
+
+        Assert.NotNull(created);
+        Assert.Equal(75, created!.DurationMinutes);
+    }
+
+    [Fact]
     public async Task CreateEvent_TournamentWithoutFormat_ReturnsBadRequest()
     {
         var gameId = await GetGameIdAsync("mtg");

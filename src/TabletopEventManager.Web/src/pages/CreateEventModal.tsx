@@ -12,7 +12,7 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
   const [games, setGames] = useState<Game[]>([]);
   const [gameId, setGameId] = useState<number>(0);
   const [configuration, setConfiguration] = useState<ConfigurationOption[]>([]);
-  const [form, setForm] = useState({ name: '', startDate: '', startTime: '', capacity: '2', playType: 'CASUAL', tournamentFormat: '' });
+  const [form, setForm] = useState({ name: '', startDate: '', startTime: '', capacity: '2', durationMinutes: '', playType: 'CASUAL', tournamentFormat: '' });
   const [format, setFormat] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setDirty] = useState(false);
@@ -34,18 +34,25 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
   useEffect(() => {
     if (gameId) {
       getGameConfiguration(gameId)
-        .then((result) => setConfiguration(result.options))
+        .then((result) => {
+          setConfiguration(result.options);
+          setFormat('');
+          setForm((current) => ({ ...current, durationMinutes: '' }));
+        })
         .catch((reason: Error) => setError(reason.message));
     }
   }, [gameId]);
 
   const formatOption = configuration.find((option) => option.key === 'event_format');
+  const durationOption = configuration.find((option) => option.key === 'default_duration_minutes');
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!form.name.trim() || !form.startDate || !form.startTime || Number(form.capacity) < 0 || Number(form.capacity) > 30 || !format) {
-      setError('Complete the required fields and use a capacity from 0 to 30.');
+    const durationMinutes = form.durationMinutes === '' ? undefined : Number(form.durationMinutes);
+    if (!form.name.trim() || !form.startDate || !form.startTime || Number(form.capacity) < 0 || Number(form.capacity) > 30 || !format
+      || (durationMinutes !== undefined && (!Number.isInteger(durationMinutes) || durationMinutes <= 0))) {
+      setError('Complete the required fields, use a capacity from 0 to 30, and enter a positive whole-number duration when overriding the default.');
       return;
     }
     try {
@@ -54,6 +61,7 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
         gameId,
         startAtUtc: toUtcIso(`${form.startDate}T${form.startTime}`),
         capacity: Number(form.capacity),
+        durationMinutes,
         playType: form.playType,
         tournamentFormat: form.tournamentFormat,
         configurationSelections: { event_format: [format] },
@@ -93,6 +101,17 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
         <label>
           Capacity
           <input type="number" min="0" max="30" value={form.capacity} onChange={(event) => { setDirty(true); setForm({ ...form, capacity: event.target.value }); }} required />
+        </label>
+        <label>
+          Duration (minutes)
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={form.durationMinutes}
+            placeholder={durationOption?.defaultValue ? `Default: ${durationOption.defaultValue}` : 'Use game default'}
+            onChange={(event) => { setDirty(true); setForm({ ...form, durationMinutes: event.target.value }); }}
+          />
         </label>
         <label>
           Play type

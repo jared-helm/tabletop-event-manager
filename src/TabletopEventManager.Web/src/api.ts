@@ -52,6 +52,7 @@ export type CreateEventRequest = {
   gameId: number;
   startAtUtc: string;
   capacity: number;
+  durationMinutes?: number;
   playType: string;
   tournamentFormat: string;
   configurationSelections: Record<string, string[]>;

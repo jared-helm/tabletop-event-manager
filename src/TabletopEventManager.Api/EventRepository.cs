@@ -450,7 +450,7 @@ public sealed record EventDetail(long Id, string Name, DateTimeOffset StartAtUtc
 {
     public DateTimeOffset EndAtUtc => StartAtUtc.AddMinutes(DurationMinutes);
 }
-public sealed record CreateEventRequest(string? Name, long GameId, DateTimeOffset StartAtUtc, int Capacity, string? Location, string PlayType, string? TournamentFormat, Dictionary<string, string[]>? ConfigurationSelections);
+public sealed record CreateEventRequest(string? Name, long GameId, DateTimeOffset StartAtUtc, int Capacity, string? Location, string PlayType, string? TournamentFormat, int? DurationMinutes, Dictionary<string, string[]>? ConfigurationSelections);
 public sealed record CreateEventResult(bool IsSuccess, string? Error, EventSummary? Event)
 {
     public static CreateEventResult Invalid(string error) => new(false, error, null);

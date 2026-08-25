@@ -30,13 +30,13 @@ public sealed class EventService
             return CreateEventResult.Invalid("The selected game is not available.");
         }
 
-        var errors = ValidateRequest(request, template);
-        if (errors.Count > 0)
+        var validation = new CreateEventRequestValidator(template).Validate(request);
+        if (!validation.IsValid)
         {
-            return CreateEventResult.Invalid(string.Join(" ", errors));
+            return CreateEventResult.Invalid(string.Join(" ", validation.Errors.Select(error => error.ErrorMessage).Distinct()));
         }
 
-        var duration = int.Parse(template.DefaultDurationMinutes ?? throw new InvalidOperationException("Template duration is required."));
+        var duration = request.DurationMinutes ?? int.Parse(template.DefaultDurationMinutes ?? throw new InvalidOperationException("Template duration is required."));
         var name = request.Name?.Trim() ?? string.Empty;
         var location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
         var tournamentFormat = string.IsNullOrWhiteSpace(request.TournamentFormat) ? null : request.TournamentFormat;
@@ -66,23 +66,4 @@ public sealed class EventService
         return CreateEventResult.Success(summary);
     }
 
-    private static List<string> ValidateRequest(CreateEventRequest request, GameTemplate template)
-    {
-        var errors = new List<string>();
-        var minimumPlayers = template.MinimumPlayers ?? 0;
-        var maximumPlayers = Math.Min(template.MaximumPlayers ?? 30, 30);
-
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120) errors.Add("Event name is required and must be 120 characters or fewer.");
-        if (request.Capacity < minimumPlayers || request.Capacity > maximumPlayers) errors.Add($"Capacity must be between {minimumPlayers} and {maximumPlayers} players.");
-        if (request.StartAtUtc == default) errors.Add("A valid start time is required.");
-        if (request.PlayType is not ("CASUAL" or "TOURNAMENT")) errors.Add("Play type is invalid.");
-        if (request.PlayType == "TOURNAMENT" && request.TournamentFormat is not ("SWISS_TOP_CUT" or "DOUBLE_ELIMINATION")) errors.Add("A valid tournament format is required.");
-        if (request.PlayType == "CASUAL" && !string.IsNullOrWhiteSpace(request.TournamentFormat)) errors.Add("Tournament format is only valid for tournament events.");
-
-        var format = request.ConfigurationSelections?.GetValueOrDefault("event_format")?.SingleOrDefault();
-        var formatOption = template.Options.FirstOrDefault(item => item.Key == "event_format");
-        if (formatOption is null || string.IsNullOrWhiteSpace(format) || !formatOption.Values.Any(value => value.Value == format)) errors.Add("A valid event format is required.");
-
-        return errors;
-    }
 }
