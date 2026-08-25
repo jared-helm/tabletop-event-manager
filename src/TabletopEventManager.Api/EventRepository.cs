@@ -1,15 +1,14 @@
-using System.Collections.Concurrent;
 using Microsoft.Data.Sqlite;
 
 namespace TabletopEventManager.Api;
 
+/// <summary>
+/// Pure data-access layer: builds queries, binds parameters, and manages transactions.
+/// All business rules (validation, decisions, locking) live in the Services layer.
+/// </summary>
 public sealed class EventRepository
 {
     private readonly string connectionString;
-
-    // In-process locking is sufficient for a single API instance; a multi-instance
-    // deployment would need a database-backed lock instead.
-    private readonly ConcurrentDictionary<long, SemaphoreSlim> registrationLocks = new();
 
     public EventRepository(IConfiguration configuration)
     {
@@ -36,10 +35,49 @@ public sealed class EventRepository
     public async Task<GameConfigurationResponse?> GetConfigurationAsync(long gameId, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        var options = new List<GameConfigurationOptionResponse>();
+        var options = await ReadGameOptionsAsync(connection, null, gameId, cancellationToken);
+        if (options.Count == 0)
+        {
+            return null;
+        }
 
+        return new GameConfigurationResponse(gameId, options);
+    }
+
+    public async Task<GameTemplate?> GetGameTemplateAsync(long gameId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        string? gameName;
+        await using (var gameCommand = connection.CreateCommand())
+        {
+            gameCommand.CommandText = "SELECT display_name FROM GAME WHERE id = $gameId AND is_active = 1";
+            gameCommand.Parameters.AddWithValue("$gameId", gameId);
+            gameName = (string?)await gameCommand.ExecuteScalarAsync(cancellationToken);
+        }
+
+        if (string.IsNullOrEmpty(gameName))
+        {
+            return null;
+        }
+
+        var options = await ReadGameOptionsAsync(connection, null, gameId, cancellationToken);
+        var defaultDuration = options.FirstOrDefault(item => item.Key == "default_duration_minutes")?.DefaultValue;
+        var minimumPlayers = options.FirstOrDefault(item => item.Key == "minimum_players")?.DefaultValue;
+        var maximumPlayers = options.FirstOrDefault(item => item.Key == "maximum_players")?.DefaultValue;
+
+        return new GameTemplate(gameName, options, defaultDuration,
+            minimumPlayers is null ? null : int.Parse(minimumPlayers),
+            maximumPlayers is null ? null : int.Parse(maximumPlayers));
+    }
+
+    private static async Task<List<GameConfigurationOptionResponse>> ReadGameOptionsAsync(
+        SqliteConnection connection, SqliteTransaction? transaction, long gameId, CancellationToken cancellationToken)
+    {
+        var options = new List<GameConfigurationOptionResponse>();
         await using (var command = connection.CreateCommand())
         {
+            command.Transaction = transaction;
             command.CommandText = """
                 SELECT id, key, label, data_type, ui_control, default_value, is_required, sort_order
                 FROM GAME_CONFIGURATION_OPTION
@@ -57,14 +95,10 @@ public sealed class EventRepository
             }
         }
 
-        if (options.Count == 0)
-        {
-            return null;
-        }
-
         for (var index = 0; index < options.Count; index++)
         {
             await using var valueCommand = connection.CreateCommand();
+            valueCommand.Transaction = transaction;
             valueCommand.CommandText = """
                 SELECT id, value, label, sort_order
                 FROM GAME_CONFIGURATION_OPTION_VALUE
@@ -82,7 +116,7 @@ public sealed class EventRepository
             options[index] = options[index] with { Values = values };
         }
 
-        return new GameConfigurationResponse(gameId, options);
+        return options;
     }
 
     public async Task<IReadOnlyList<EventSummary>> GetEventsAsync(DateTimeOffset start, DateTimeOffset end, CancellationToken cancellationToken)
@@ -192,6 +226,47 @@ public sealed class EventRepository
         return rowsAffected > 0;
     }
 
+    public async Task<long> InsertEventAsync(EventInsertRow row, IReadOnlyList<(long OptionId, string Value)> configurationSelections, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+
+        await using var eventCommand = connection.CreateCommand();
+        eventCommand.Transaction = transaction;
+        eventCommand.CommandText = """
+            INSERT INTO EVENT (game_id, name, start_at_utc, duration_minutes, capacity, location,
+                               play_type, tournament_format, registration_slug, created_at_utc)
+            VALUES ($gameId, $name, $startAtUtc, $duration, $capacity, $location,
+                    $playType, $tournamentFormat, $slug, $createdAtUtc)
+            RETURNING id
+            """;
+        eventCommand.Parameters.AddWithValue("$gameId", row.GameId);
+        eventCommand.Parameters.AddWithValue("$name", row.Name);
+        eventCommand.Parameters.AddWithValue("$startAtUtc", row.StartAtUtc.ToString("O"));
+        eventCommand.Parameters.AddWithValue("$duration", row.DurationMinutes);
+        eventCommand.Parameters.AddWithValue("$capacity", row.Capacity);
+        eventCommand.Parameters.AddWithValue("$location", (object?)row.Location ?? DBNull.Value);
+        eventCommand.Parameters.AddWithValue("$playType", row.PlayType);
+        eventCommand.Parameters.AddWithValue("$tournamentFormat", (object?)row.TournamentFormat ?? DBNull.Value);
+        eventCommand.Parameters.AddWithValue("$slug", row.RegistrationSlug);
+        eventCommand.Parameters.AddWithValue("$createdAtUtc", row.CreatedAtUtc.ToString("O"));
+        var eventId = (long)(await eventCommand.ExecuteScalarAsync(cancellationToken) ?? throw new InvalidOperationException("Event was not created."));
+
+        foreach (var (optionId, value) in configurationSelections)
+        {
+            await using var selectionCommand = connection.CreateCommand();
+            selectionCommand.Transaction = transaction;
+            selectionCommand.CommandText = "INSERT INTO EVENT_CONFIGURATION_SELECTION (event_id, option_id, selected_value) VALUES ($eventId, $optionId, $value)";
+            selectionCommand.Parameters.AddWithValue("$eventId", eventId);
+            selectionCommand.Parameters.AddWithValue("$optionId", optionId);
+            selectionCommand.Parameters.AddWithValue("$value", value);
+            await selectionCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return eventId;
+    }
+
     public async Task<RegistrationsResponse> GetRegistrationsAsync(long eventId, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -214,7 +289,7 @@ public sealed class EventRepository
         return new RegistrationsResponse(players.Count, players);
     }
 
-    public async Task<RegistrationPageContext?> GetRegistrationContextAsync(string slug, CancellationToken cancellationToken)
+    public async Task<RegistrationContextRow?> GetRegistrationContextRowAsync(string slug, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -233,268 +308,26 @@ public sealed class EventRepository
             return null;
         }
 
-        var startAtUtc = DateTimeOffset.Parse(reader.GetString(1));
-        var durationMinutes = reader.GetInt32(2);
-        return new RegistrationPageContext(
-            reader.GetString(0), reader.GetString(5), startAtUtc, startAtUtc.AddMinutes(durationMinutes),
-            reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetInt32(3), reader.GetInt64(6),
-            DateTimeOffset.UtcNow >= startAtUtc);
+        return new RegistrationContextRow(
+            reader.GetString(0), reader.GetString(5), DateTimeOffset.Parse(reader.GetString(1)), reader.GetInt32(2),
+            reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetInt32(3), reader.GetInt64(6));
     }
 
-    public async Task<RegistrationResult> RegisterPlayerAsync(string slug, string? firstName, string? lastName, string? playerTag, CancellationToken cancellationToken)
-    {
-        var normalizedFirstName = (firstName ?? string.Empty).Trim();
-        var normalizedLastName = (lastName ?? string.Empty).Trim();
-        var normalizedTag = string.IsNullOrWhiteSpace(playerTag) ? null : playerTag.Trim();
-
-        if (normalizedFirstName.Length is 0 or > 60 || normalizedLastName.Length is 0 or > 60 || normalizedTag is { Length: > 60 })
-        {
-            return RegistrationResult.Invalid("First name and last name are required and must be 60 characters or fewer.");
-        }
-
-        long eventId;
-        await using (var lookupConnection = await OpenConnectionAsync(cancellationToken))
-        await using (var lookupCommand = lookupConnection.CreateCommand())
-        {
-            lookupCommand.CommandText = "SELECT id FROM EVENT WHERE registration_slug = $slug AND deleted_at_utc IS NULL";
-            lookupCommand.Parameters.AddWithValue("$slug", slug);
-            var value = await lookupCommand.ExecuteScalarAsync(cancellationToken);
-            if (value is null)
-            {
-                return RegistrationResult.Unavailable();
-            }
-
-            eventId = (long)value;
-        }
-
-        var eventLock = registrationLocks.GetOrAdd(eventId, _ => new SemaphoreSlim(1, 1));
-        await eventLock.WaitAsync(cancellationToken);
-        try
-        {
-            await using var connection = await OpenConnectionAsync(cancellationToken);
-            await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
-
-            string eventName;
-            string gameName;
-            DateTimeOffset startAtUtc;
-            int durationMinutes;
-            int capacity;
-            await using (var eventCommand = connection.CreateCommand())
-            {
-                eventCommand.Transaction = transaction;
-                eventCommand.CommandText = """
-                    SELECT e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.deleted_at_utc, g.display_name
-                    FROM EVENT e
-                    INNER JOIN GAME g ON g.id = e.game_id
-                    WHERE e.id = $eventId
-                    """;
-                eventCommand.Parameters.AddWithValue("$eventId", eventId);
-                await using var reader = await eventCommand.ExecuteReaderAsync(cancellationToken);
-                if (!await reader.ReadAsync(cancellationToken) || !reader.IsDBNull(4))
-                {
-                    return RegistrationResult.Unavailable();
-                }
-
-                eventName = reader.GetString(0);
-                startAtUtc = DateTimeOffset.Parse(reader.GetString(1));
-                durationMinutes = reader.GetInt32(2);
-                capacity = reader.GetInt32(3);
-                gameName = reader.GetString(5);
-            }
-
-            if (DateTimeOffset.UtcNow >= startAtUtc)
-            {
-                return RegistrationResult.Closed();
-            }
-
-            await using (var duplicateCommand = connection.CreateCommand())
-            {
-                duplicateCommand.Transaction = transaction;
-                duplicateCommand.CommandText = """
-                    SELECT COUNT(*) FROM EVENT_REGISTRATION
-                    WHERE event_id = $eventId
-                      AND (
-                        (lower(trim(first_name)) = lower($firstName) AND lower(trim(last_name)) = lower($lastName))
-                        OR ($playerTag IS NOT NULL AND lower(trim(player_tag)) = lower($playerTag))
-                      )
-                    """;
-                duplicateCommand.Parameters.AddWithValue("$eventId", eventId);
-                duplicateCommand.Parameters.AddWithValue("$firstName", normalizedFirstName);
-                duplicateCommand.Parameters.AddWithValue("$lastName", normalizedLastName);
-                duplicateCommand.Parameters.AddWithValue("$playerTag", (object?)normalizedTag ?? DBNull.Value);
-                var duplicateCount = (long)(await duplicateCommand.ExecuteScalarAsync(cancellationToken) ?? 0L);
-                if (duplicateCount > 0)
-                {
-                    return RegistrationResult.Duplicate();
-                }
-            }
-
-            await using (var countCommand = connection.CreateCommand())
-            {
-                countCommand.Transaction = transaction;
-                countCommand.CommandText = "SELECT COUNT(*) FROM EVENT_REGISTRATION WHERE event_id = $eventId";
-                countCommand.Parameters.AddWithValue("$eventId", eventId);
-                var currentCount = (long)(await countCommand.ExecuteScalarAsync(cancellationToken) ?? 0L);
-                if (currentCount >= capacity)
-                {
-                    return RegistrationResult.Full();
-                }
-            }
-
-            await using (var insertCommand = connection.CreateCommand())
-            {
-                insertCommand.Transaction = transaction;
-                insertCommand.CommandText = """
-                    INSERT INTO EVENT_REGISTRATION (event_id, first_name, last_name, player_tag, registered_at_utc)
-                    VALUES ($eventId, $firstName, $lastName, $playerTag, $registeredAtUtc)
-                    """;
-                insertCommand.Parameters.AddWithValue("$eventId", eventId);
-                insertCommand.Parameters.AddWithValue("$firstName", normalizedFirstName);
-                insertCommand.Parameters.AddWithValue("$lastName", normalizedLastName);
-                insertCommand.Parameters.AddWithValue("$playerTag", (object?)normalizedTag ?? DBNull.Value);
-                insertCommand.Parameters.AddWithValue("$registeredAtUtc", DateTimeOffset.UtcNow.ToString("O"));
-                await insertCommand.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            await transaction.CommitAsync(cancellationToken);
-            return RegistrationResult.Success(new RegistrationConfirmation(eventName, gameName, startAtUtc, startAtUtc.AddMinutes(durationMinutes), normalizedFirstName, normalizedLastName));
-        }
-        finally
-        {
-            eventLock.Release();
-        }
-    }
-
-    public async Task<CreateEventResult> CreateEventAsync(CreateEventRequest request, CancellationToken cancellationToken)
+    public async Task<long?> FindActiveEventIdBySlugAsync(string slug, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
-
-        var template = await LoadTemplateAsync(connection, transaction, request.GameId, cancellationToken);
-        if (template is null)
-        {
-            return CreateEventResult.Invalid("The selected game is not available.");
-        }
-
-        var errors = ValidateRequest(request, template);
-        if (errors.Count > 0)
-        {
-            return CreateEventResult.Invalid(string.Join(" ", errors));
-        }
-
-        var duration = int.Parse(template.DefaultDurationMinutes ?? throw new InvalidOperationException("Template duration is required."));
-        var name = request.Name?.Trim() ?? string.Empty;
-        var createdAtUtc = DateTimeOffset.UtcNow;
-        var slug = Guid.NewGuid().ToString("N");
-
-        await using var eventCommand = connection.CreateCommand();
-        eventCommand.Transaction = transaction;
-        eventCommand.CommandText = """
-            INSERT INTO EVENT (game_id, name, start_at_utc, duration_minutes, capacity, location,
-                               play_type, tournament_format, registration_slug, created_at_utc)
-            VALUES ($gameId, $name, $startAtUtc, $duration, $capacity, $location,
-                    $playType, $tournamentFormat, $slug, $createdAtUtc)
-            RETURNING id
-            """;
-        eventCommand.Parameters.AddWithValue("$gameId", request.GameId);
-        eventCommand.Parameters.AddWithValue("$name", name);
-        eventCommand.Parameters.AddWithValue("$startAtUtc", request.StartAtUtc.ToUniversalTime().ToString("O"));
-        eventCommand.Parameters.AddWithValue("$duration", duration);
-        eventCommand.Parameters.AddWithValue("$capacity", request.Capacity);
-        eventCommand.Parameters.AddWithValue("$location", string.IsNullOrWhiteSpace(request.Location) ? DBNull.Value : request.Location.Trim());
-        eventCommand.Parameters.AddWithValue("$playType", request.PlayType);
-        eventCommand.Parameters.AddWithValue("$tournamentFormat", string.IsNullOrWhiteSpace(request.TournamentFormat) ? DBNull.Value : request.TournamentFormat);
-        eventCommand.Parameters.AddWithValue("$slug", slug);
-        eventCommand.Parameters.AddWithValue("$createdAtUtc", createdAtUtc.ToString("O"));
-        var eventId = (long)(await eventCommand.ExecuteScalarAsync(cancellationToken) ?? throw new InvalidOperationException("Event was not created."));
-
-        foreach (var selection in request.ConfigurationSelections ?? [])
-        {
-            var option = template.Options.FirstOrDefault(item => item.Key == selection.Key);
-            if (option is null || selection.Value is null)
-            {
-                continue;
-            }
-
-            foreach (var value in selection.Value.Distinct(StringComparer.Ordinal))
-            {
-                await using var selectionCommand = connection.CreateCommand();
-                selectionCommand.Transaction = transaction;
-                selectionCommand.CommandText = "INSERT INTO EVENT_CONFIGURATION_SELECTION (event_id, option_id, selected_value) VALUES ($eventId, $optionId, $value)";
-                selectionCommand.Parameters.AddWithValue("$eventId", eventId);
-                selectionCommand.Parameters.AddWithValue("$optionId", option.Id);
-                selectionCommand.Parameters.AddWithValue("$value", value);
-                await selectionCommand.ExecuteNonQueryAsync(cancellationToken);
-            }
-        }
-
-        await transaction.CommitAsync(cancellationToken);
-        var summary = new EventSummary(eventId, name, request.StartAtUtc.ToUniversalTime(), duration, request.Capacity,
-            string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim(), request.PlayType, request.TournamentFormat, slug,
-            template.GameName, 0);
-        return CreateEventResult.Success(summary);
-    }
-
-    private static async Task<TemplateData?> LoadTemplateAsync(SqliteConnection connection, SqliteTransaction transaction, long gameId, CancellationToken cancellationToken)
-    {
-        var gameName = string.Empty;
-        await using (var gameCommand = connection.CreateCommand())
-        {
-            gameCommand.Transaction = transaction;
-            gameCommand.CommandText = "SELECT display_name FROM GAME WHERE id = $gameId AND is_active = 1";
-            gameCommand.Parameters.AddWithValue("$gameId", gameId);
-            gameName = (string?)await gameCommand.ExecuteScalarAsync(cancellationToken) ?? string.Empty;
-        }
-
-        if (string.IsNullOrEmpty(gameName))
-        {
-            return null;
-        }
-
-        var options = new List<GameConfigurationOptionResponse>();
         await using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = "SELECT id, key, label, data_type, ui_control, default_value, is_required, sort_order FROM GAME_CONFIGURATION_OPTION WHERE game_id = $gameId AND is_active = 1";
-        command.Parameters.AddWithValue("$gameId", gameId);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            options.Add(new GameConfigurationOptionResponse(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetBoolean(6), reader.GetInt32(7), []));
-        }
-
-        for (var index = 0; index < options.Count; index++)
-        {
-            await using var valueCommand = connection.CreateCommand();
-            valueCommand.Transaction = transaction;
-            valueCommand.CommandText = "SELECT id, value, label, sort_order FROM GAME_CONFIGURATION_OPTION_VALUE WHERE option_id = $optionId AND is_active = 1 ORDER BY sort_order, id";
-            valueCommand.Parameters.AddWithValue("$optionId", options[index].Id);
-            var values = new List<GameConfigurationValueResponse>();
-            await using var valueReader = await valueCommand.ExecuteReaderAsync(cancellationToken);
-            while (await valueReader.ReadAsync(cancellationToken))
-            {
-                values.Add(new GameConfigurationValueResponse(valueReader.GetInt64(0), valueReader.GetString(1), valueReader.GetString(2), valueReader.GetInt32(3)));
-            }
-
-            options[index] = options[index] with { Values = values };
-        }
-
-        return new TemplateData(gameName, options, options.FirstOrDefault(item => item.Key == "default_duration_minutes")?.DefaultValue,
-            int.Parse(options.First(item => item.Key == "minimum_players").DefaultValue!), int.Parse(options.First(item => item.Key == "maximum_players").DefaultValue!));
+        command.CommandText = "SELECT id FROM EVENT WHERE registration_slug = $slug AND deleted_at_utc IS NULL";
+        command.Parameters.AddWithValue("$slug", slug);
+        return (long?)await command.ExecuteScalarAsync(cancellationToken);
     }
 
-    private static List<string> ValidateRequest(CreateEventRequest request, TemplateData template)
+    public async Task<RegistrationUnitOfWork> BeginRegistrationAsync(long eventId, CancellationToken cancellationToken)
     {
-        var errors = new List<string>();
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120) errors.Add("Event name is required and must be 120 characters or fewer.");
-        if (request.Capacity < template.MinimumPlayers || request.Capacity > Math.Min(template.MaximumPlayers, 30)) errors.Add($"Capacity must be between {template.MinimumPlayers} and {Math.Min(template.MaximumPlayers, 30)} players.");
-        if (request.StartAtUtc == default) errors.Add("A valid start time is required.");
-        if (request.PlayType is not ("CASUAL" or "TOURNAMENT")) errors.Add("Play type is invalid.");
-        if (request.PlayType == "TOURNAMENT" && request.TournamentFormat is not ("SWISS_TOP_CUT" or "DOUBLE_ELIMINATION")) errors.Add("A valid tournament format is required.");
-        if (request.PlayType == "CASUAL" && !string.IsNullOrWhiteSpace(request.TournamentFormat)) errors.Add("Tournament format is only valid for tournament events.");
-        var format = request.ConfigurationSelections?.GetValueOrDefault("event_format")?.SingleOrDefault();
-        var formatOption = template.Options.FirstOrDefault(item => item.Key == "event_format");
-        if (formatOption is null || string.IsNullOrWhiteSpace(format) || !formatOption.Values.Any(value => value.Value == format)) errors.Add("A valid event format is required.");
-        return errors;
+        var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        return new RegistrationUnitOfWork(connection, transaction, eventId);
     }
 
     private async Task<SqliteConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -503,18 +336,115 @@ public sealed class EventRepository
         await connection.OpenAsync(cancellationToken);
         return connection;
     }
+}
 
-    private sealed record TemplateData(string GameName, List<GameConfigurationOptionResponse> Options, string? DefaultDurationMinutes, int MinimumPlayers, int MaximumPlayers);
+/// <summary>
+/// Scopes the queries and insert needed to complete one registration attempt inside a single
+/// transaction. Callers decide whether to commit; disposing without committing rolls back.
+/// </summary>
+public sealed class RegistrationUnitOfWork : IAsyncDisposable
+{
+    private readonly SqliteConnection connection;
+    private readonly SqliteTransaction transaction;
+    private readonly long eventId;
+
+    internal RegistrationUnitOfWork(SqliteConnection connection, SqliteTransaction transaction, long eventId)
+    {
+        this.connection = connection;
+        this.transaction = transaction;
+        this.eventId = eventId;
+    }
+
+    public async Task<EventRegistrationSnapshot?> GetEventSnapshotAsync(CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT e.name, e.start_at_utc, e.duration_minutes, e.capacity, e.deleted_at_utc, g.display_name
+            FROM EVENT e
+            INNER JOIN GAME g ON g.id = e.game_id
+            WHERE e.id = $eventId
+            """;
+        command.Parameters.AddWithValue("$eventId", eventId);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new EventRegistrationSnapshot(
+            !reader.IsDBNull(4), reader.GetString(0), reader.GetString(5),
+            DateTimeOffset.Parse(reader.GetString(1)), reader.GetInt32(2), reader.GetInt32(3));
+    }
+
+    public async Task<bool> HasDuplicateAsync(string normalizedFirstName, string normalizedLastName, string? normalizedPlayerTag, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT COUNT(*) FROM EVENT_REGISTRATION
+            WHERE event_id = $eventId
+              AND (
+                (lower(trim(first_name)) = lower($firstName) AND lower(trim(last_name)) = lower($lastName))
+                OR ($playerTag IS NOT NULL AND lower(trim(player_tag)) = lower($playerTag))
+              )
+            """;
+        command.Parameters.AddWithValue("$eventId", eventId);
+        command.Parameters.AddWithValue("$firstName", normalizedFirstName);
+        command.Parameters.AddWithValue("$lastName", normalizedLastName);
+        command.Parameters.AddWithValue("$playerTag", (object?)normalizedPlayerTag ?? DBNull.Value);
+        var count = (long)(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
+        return count > 0;
+    }
+
+    public async Task<long> CountRegistrationsAsync(CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT COUNT(*) FROM EVENT_REGISTRATION WHERE event_id = $eventId";
+        command.Parameters.AddWithValue("$eventId", eventId);
+        return (long)(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
+    }
+
+    public async Task InsertRegistrationAsync(string normalizedFirstName, string normalizedLastName, string? normalizedPlayerTag, DateTimeOffset registeredAtUtc, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO EVENT_REGISTRATION (event_id, first_name, last_name, player_tag, registered_at_utc)
+            VALUES ($eventId, $firstName, $lastName, $playerTag, $registeredAtUtc)
+            """;
+        command.Parameters.AddWithValue("$eventId", eventId);
+        command.Parameters.AddWithValue("$firstName", normalizedFirstName);
+        command.Parameters.AddWithValue("$lastName", normalizedLastName);
+        command.Parameters.AddWithValue("$playerTag", (object?)normalizedPlayerTag ?? DBNull.Value);
+        command.Parameters.AddWithValue("$registeredAtUtc", registeredAtUtc.ToString("O"));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task CommitAsync(CancellationToken cancellationToken)
+    {
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Disposing an uncommitted transaction rolls it back; a no-op once already committed.
+        await transaction.DisposeAsync();
+        await connection.DisposeAsync();
+    }
 }
 
 public sealed record GameSummary(long Id, string Code, string DisplayName);
 public sealed record GameConfigurationResponse(long GameId, IReadOnlyList<GameConfigurationOptionResponse> Options);
 public sealed record GameConfigurationOptionResponse(long Id, string Key, string Label, string DataType, string UiControl, string? DefaultValue, bool IsRequired, int SortOrder, IReadOnlyList<GameConfigurationValueResponse> Values);
 public sealed record GameConfigurationValueResponse(long Id, string Value, string Label, int SortOrder);
+public sealed record GameTemplate(string GameName, IReadOnlyList<GameConfigurationOptionResponse> Options, string? DefaultDurationMinutes, int? MinimumPlayers, int? MaximumPlayers);
 public sealed record EventSummary(long Id, string Name, DateTimeOffset StartAtUtc, int DurationMinutes, int Capacity, string? Location, string PlayType, string? TournamentFormat, string RegistrationSlug, string GameName, long RegistrationCount)
 {
     public DateTimeOffset EndAtUtc => StartAtUtc.AddMinutes(DurationMinutes);
 }
+public sealed record EventInsertRow(long GameId, string Name, DateTimeOffset StartAtUtc, int DurationMinutes, int Capacity, string? Location, string PlayType, string? TournamentFormat, string RegistrationSlug, DateTimeOffset CreatedAtUtc);
 public sealed record EventConfigurationSelectionResponse(string Key, string Label, IReadOnlyList<string> Values);
 public sealed record EventDetail(long Id, string Name, DateTimeOffset StartAtUtc, int DurationMinutes, int Capacity, string? Location, string PlayType, string? TournamentFormat, string RegistrationSlug, string GameName, long RegistrationCount, string GameCode, IReadOnlyList<EventConfigurationSelectionResponse> ConfigurationSelections)
 {
@@ -528,8 +458,10 @@ public sealed record CreateEventResult(bool IsSuccess, string? Error, EventSumma
 }
 public sealed record PlayerRegistration(string FirstName, string LastName, string? PlayerTag);
 public sealed record RegistrationsResponse(long TotalCount, IReadOnlyList<PlayerRegistration> Players);
+public sealed record RegistrationContextRow(string EventName, string GameName, DateTimeOffset StartAtUtc, int DurationMinutes, string? Location, int Capacity, long RegistrationCount);
 public sealed record RegistrationPageContext(string EventName, string GameName, DateTimeOffset StartAtUtc, DateTimeOffset EndAtUtc, string? Location, int Capacity, long RegistrationCount, bool IsClosed);
 public sealed record RegisterPlayerRequest(string? FirstName, string? LastName, string? PlayerTag);
+public sealed record EventRegistrationSnapshot(bool IsDeleted, string EventName, string GameName, DateTimeOffset StartAtUtc, int DurationMinutes, int Capacity);
 public sealed record RegistrationConfirmation(string EventName, string GameName, DateTimeOffset StartAtUtc, DateTimeOffset EndAtUtc, string FirstName, string LastName);
 public enum RegistrationOutcome { Success, Invalid, Unavailable, Closed, Duplicate, Full }
 public sealed record RegistrationResult(RegistrationOutcome Outcome, string? Error, RegistrationConfirmation? Confirmation)

@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddSingleton<EventRepository>();
+builder.Services.AddSingleton<EventRegistrationLock>();
 builder.Services.AddSingleton<GameTemplateService>();
 builder.Services.AddSingleton<EventService>();
 builder.Services.AddSingleton<RegistrationService>();
