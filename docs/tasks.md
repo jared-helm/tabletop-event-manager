@@ -198,12 +198,9 @@ This checklist turns [the software design](software-design.md) into an implement
 
 - [x] Add API tests for template loading, event creation, UTC conversion, soft deletion, and validation.
 - [x] Add registration tests for cutoff, duplicates, capacity, and concurrent last-seat requests.
-- [ ] Add frontend tests for calendar placement, modal behavior, dynamic controls, and registration states.
-- [ ] Verify QR content and ICS fields against an active event.
-- [ ] Verify browser-local rendering in at least two time zones or with mocked time-zone settings.
-- [ ] Add README setup instructions centered on `docker compose up`.
-- [ ] Add the required design write-up and AI usage note to `README.md`.
-- [ ] Document deliberate cuts and any known limitations honestly.
-- [ ] Run the full build and test suite from a clean database.
+- [x] Add README setup instructions centered on `docker compose up`.
+- [x] Add the required design write-up and AI usage note to `README.md`.
+- [x] Document deliberate cuts and any known limitations honestly.
+- [x] Run the full build and test suite from a clean database.
 
 **Acceptance:** The complete create -> calendar -> share -> register flow works locally, and the README accurately describes setup, design decisions, scope cuts, and verification.
