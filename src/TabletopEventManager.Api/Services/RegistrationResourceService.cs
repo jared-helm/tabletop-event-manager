@@ -13,6 +13,7 @@ public sealed record CalendarInvite(byte[] Content, string FileName);
 /// <summary>QR/ICS resource service: builds the shareable registration link, its QR code, and the .ics download.</summary>
 public sealed class RegistrationResourceService
 {
+    private const string CalendarLocation = "Jareds card shop";
     private readonly EventRepository repository;
     private readonly IConfiguration configuration;
 
@@ -54,7 +55,7 @@ public sealed class RegistrationResourceService
             Summary = detail.Name,
             Start = new CalDateTime(detail.StartAtUtc.UtcDateTime, "UTC"),
             End = new CalDateTime(detail.EndAtUtc.UtcDateTime, "UTC"),
-            Location = detail.Location,
+            Location = CalendarLocation,
         });
 
         var icsBytes = Encoding.UTF8.GetBytes(new CalendarSerializer().SerializeToString(calendar));

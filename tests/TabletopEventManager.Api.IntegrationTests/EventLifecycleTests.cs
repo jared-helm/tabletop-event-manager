@@ -67,4 +67,16 @@ public sealed class EventLifecycleTests : IClassFixture<CustomWebApplicationFact
         Assert.NotNull(deletedAtUtc);
         Assert.IsNotType<DBNull>(deletedAtUtc);
     }
+
+    [Fact]
+    public async Task CalendarInvite_UsesStaticCardShopLocation()
+    {
+        var created = await CreateEventAsync();
+
+        var response = await client.GetAsync($"/api/events/{created.Id}/calendar-invite");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var ics = await response.Content.ReadAsStringAsync();
+        Assert.Contains("LOCATION:Jareds card shop", ics);
+    }
 }
