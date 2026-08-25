@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: ./src/TabletopEventManager.Api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Data Source=/app/data/tabletop-event-manager.db
+      Frontend__Origin: http://localhost:5173
+    ports:
+      - "5080:8080"
+    volumes:
+      - sqlite-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--output-document=-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./src/TabletopEventManager.Web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+
+volumes:
+  sqlite-data:

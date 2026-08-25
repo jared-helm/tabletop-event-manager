@@ -25,7 +25,7 @@ Verify the service is running:
 - Root endpoint: http://localhost:5080/
 - Health endpoint: http://localhost:5080/health
 
-The health endpoint returns the service status and a UTC timestamp. Docker Compose startup instructions will be added when the frontend and container setup are implemented.
+The health endpoint returns the service status and a UTC timestamp.
 
 ## Frontend Development
 
@@ -48,3 +48,20 @@ cmd /c npm run build
 ```
 
 The frontend smoke-test setup is included with Vitest and Testing Library.
+
+## Docker Compose
+
+Docker Desktop with Docker Compose is required for the containerized startup.
+From the repository root:
+
+```powershell
+docker compose up --build
+```
+
+The frontend is available at `http://localhost:5173`. The API is available at `http://localhost:5080`, and its health endpoint is `http://localhost:5080/health`.
+
+SQLite data is persisted in the `sqlite-data` Docker volume. Stop the stack with `Ctrl+C`. To remove the containers and persisted local database volume, run:
+
+```powershell
+docker compose down -v
+```

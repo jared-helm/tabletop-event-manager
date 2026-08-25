@@ -29,11 +29,11 @@ This checklist turns [the software design](software-design.md) into an implement
 
 ### Docker Compose
 
-- [ ] Add `docker-compose.yml` for the API, frontend, and persistent SQLite storage.
-- [ ] Add Dockerfiles or equivalent build configuration for the API and frontend.
-- [ ] Configure service-to-service API URL wiring.
-- [ ] Configure a persistent database volume.
-- [ ] Add health checks or startup ordering where needed.
+- [x] Add `docker-compose.yml` for the API, frontend, and persistent SQLite storage.
+- [x] Add Dockerfiles or equivalent build configuration for the API and frontend.
+- [x] Configure service-to-service API URL wiring.
+- [x] Configure a persistent database volume.
+- [x] Add health checks or startup ordering where needed.
 - [ ] Verify the primary local startup path is `docker compose up`.
 
 **Acceptance:** A clean checkout can start the stack with one primary command and reach both frontend and API endpoints.
