@@ -75,17 +75,27 @@ cmd /c npm test
 
 - How did you determine and enforce how many people can attend an event? Where does capacity live, and what happens under concurrent registrations for the last seat?
 
-The admin is able to determine how many people can attend an event when they set the event up. Since 30 attendees was our hard limit the UI doesn't allow values greater than this and that validation is run as a redundant check in the api using a fluent validator. Capacity lives on the event itself since its common to all events. In the case of concurrent registrations, only one registration is able to write to the database with the use of event specific semaphores. If this were a larger system we could look into using a distributed lock to handle these scenarios.
+The admin is able to determine how many people can attend an event when they set the event up. Since 30 attendees was our hard limit the UI doesn't allow values greater than this and that validation is run as a redundant check in the api using a fluent validator. Capacity lives on the event itself since its common to all events. 
+
+In the case of concurrent registrations, only one registration is able to write to the database with the use of event specific semaphores. Use of these semaphores prevents exceeding the max registrations as well as serializing critical checks such duplicate checking and ensuring the event time has not passed. If two players attempt to claim the final seat concurrently, one request completes successfully and commits the registration. The next request then rechecks the updated registration count and receives the “event is full” response. Registrations for different events can proceed concurrently because the semaphore is scoped per event.
+
+If this were a larger system we could look into using a distributed lock to handle these scenarios.
 
 - How does your template system work, and what would adding a 4th game (or a non-card game) require?
 
 The template system has a core entity of `Game` that holds basic details such as the name of the game. Properties specific to each game are seeded into `GameConfigurationOption`. Each game type can map any number of configuration options based on how that game plays. When an actual event is set up the selected values of those options for that event are stored in `EventConfigurationSelection`. For options with an enum of values available to select, we have a separate table called `GameConfigurationOptionValue`. This table contains arrays of possible values for our configuration options. 
 
-Adding a 4th game would simply require seeding the game as well as its configuration options. This could be added as a future screen where the user could specify the properties applicable to this new game type.
+Using this model we were able to support game driven event properties such as event duration (default changes based on the game) and event format. 
+
+Adding a 4th game would require a game row, its configuration options, and any allowed option values in the seed data. The front end is designed to load template metadata but additional work would be needed to make the UI fully generic. 
 
 - What did you deliberately cut or fake to stay in the timebox, and what would you build next?
 
-I deliberately did not build out a system for adding or removing propeprties for a game type or any kind of detail screen showing the configuration for each game. All configuration is pre-seeded with the files in the scripts folder.
+I deliberately did not build out a system for adding or removing properties for a game type or any kind of detail screen showing the configuration for each game. All configuration is pre-seeded with the files in the scripts folder. 
+
+As a note, I also removed the location field from the event form and hard coded the .ics file location to be "Jareds card shop". Since the prompt was framed as events at a local store it didn't make sense to specify the location on the creation of every event.
+
+Full scope cuts are detailed in the [software design doc](https://github.com/jared-helm/tabletop-event-manager/blob/main/docs/software-design.md#11-scope-and-deliberate-cuts).
 
 There's a lot of things that could be added to this project but the first choice would probably be accounts and authentication. This would add security and allow us to enforce authorization rules. It would also allow users registering for events to save their information so registration could be super straightforward. This would also allow us to link event results to an account so that participants could see their progress tracked over time at various events. 
 
